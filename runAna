@@ -1,0 +1,15 @@
+#!/bin/bash
+if test -z "$1"
+then
+  echo " <tag> (e.g. 07-12-1900_0) <max events> "
+  exit; 
+fi
+TAG=$1
+# default is read all 
+NMAX=0
+if [ $# > 2 ]
+then
+  NMAX=$2
+fi
+echo root  -q -b "pmtAna.cc++(\"$TAG\",$NMAX)"
+root -q -b " pmtAna.cc++(\"$TAG\",$NMAX)"
