@@ -3,7 +3,7 @@
 pmtAna::pmtAna(TString tag, Int_t maxLoop)
 {
   fChain=NULL;
-  TString fileName = TString("pdsData/PDSout_") + TString(tag) + TString(".root");
+  TString fileName = TString("/global/homes/m/mgold/mgold/pdsAnalysis/pdsData/PDSout_") + TString(tag) + TString(".root");
   printf(" looking for file %s\n",fileName.Data());
   TFile *f = new TFile(fileName,"readonly");
   if(!f) {
@@ -133,12 +133,10 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
   // loop over entries zero = all 
   UInt_t nLoop = Loop(maxLoop);
 
-  // do some plotting
-  //gStyle->SetOptLogy();
-   //
-
   outfile->Write();
+  // do some plotting
 
+  /*
 
   TString canname;
   enum {NCAN=6};
@@ -190,7 +188,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
     can4[ican]->Print(".pdf");
     can5[ican]->Print(".pdf");
   }
- 
+ */
 
 
 }

@@ -1,0 +1,29 @@
+#!/bin/bash -l
+DATADIR=/global/homes/m/mgold/data/2017/PDS_beamtime_alternate_runs/
+OUTDIR=/global/homes/m/mgold/data/2017/pdsOuput/
+NEV=0
+ATTRIB=alternate
+# 6339
+for ((a=1627; a <= 1627 ; a++)) ; do  # Double parentheses, and naked "LIMIT"
+  TAG=07-20-${a}_0
+  INFILE=PDSout_${TAG}.root
+  if [  -e $DATADIR/$INFILE ]; then
+    JOBNAME=pdsjob-$TAG-$ATTRIB.sh
+    if [ -e $JOBNAME ]; then
+      echo remove $JOBNAME 
+      rm $JOBNAME
+    fi
+
+    echo creating job qsub -l h_vmem=2G $JOBNAME 
+    echo "#!/bin/bash -l" >> $JOBNAME
+    echo "export ROOTSYS=/project/projectdirs/captain/releases/LCGCMT/2.0.4/LCG_Settings/../EXTERNALS/ROOT/5.34.34/x86_64-linux-gcc44-opt" >> $JOBNAME
+    echo "source $ROOTSYS/bin/thisroot.sh" >> $JOBNAME
+    echo "/global/homes/m/mgold/mgold/pdsAnalysis/runAna $TAG $NEV" >> $JOBNAME
+    ## cat $JOBNAME
+    qsub -l h_vmem=2G $JOBNAME 
+  else 
+    echo "${DATADIR}/${INFILE} NOT FOUND " 
+  fi
+done
+exit 1
+
