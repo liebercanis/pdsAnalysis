@@ -12,4 +12,4 @@ if [ -z "$2" ]; then
   NMAX=$2
 fi
 echo root  -q -b "pmtAna.cc++(\"$TAG\",$NMAX)"
-#root -q -b " pmtAna.cc++(\"$TAG\",$NMAX)"
+root -q -b " pmtAna.cc++(\"$TAG\",$NMAX)"
