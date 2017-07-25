@@ -26,15 +26,15 @@
 #include <TH1F.h>
 #include <TStyle.h>
 #include <TCanvas.h>
-
+//   ****back to the V1720 
 typedef std::complex<double> Complex;
 
 
 class pmtAna {
 public :
-  enum {MAXSAMPLES=4200};
-  enum {NB=3,NC=16,NS=MAXSAMPLES};
-  enum {NPMT=NB*NC/2};
+  enum {MAXSAMPLES=2100};
+  enum {NB=3,NCPMT=7,NC=NCPMT+1,NS=MAXSAMPLES};
+  enum {NPMT=NB*NCPMT};
 
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
@@ -97,22 +97,28 @@ public :
    double getBaseline(int ipmt ) { return hBase->GetBinContent(ipmt+1); } 
 
    // returns -1 if pmt does not exist 
-   int toPmtNumber(int ib, int ic) 
-   {
-     int ipmt;
-     if(ic%2!=0) ipmt=-1;
-     else ipmt = ib*NC/2+ ic/2;
-     return ipmt;
-   }
-
-   // valid pmt are 0 to NPMT-1
+   // populate 3 boards, each from channel 0-6.  Channel 7 is the RF pulse. 
+   // valid pmt are 0 to 20, RF channels are 21,22,23
    void fromPmtNumber(int ipmt, int& ib, int&ic)
    {
      ib=-1; ic=-1;
-     if(ipmt>=NPMT&&ipmt<0) return;
-     int jpmt = 2*ipmt;
-     ib=(jpmt-jpmt%NC)/NC;
-     ic= jpmt - NC*ib;
+     if(ipmt<0) return;
+     if(ipmt>=NPMT) {
+       ib=ipmt-NPMT;
+       ic = 7;
+     } else {
+       ib=(ipmt-ipmt%NCPMT)/NCPMT;
+       ic= ipmt%NCPMT;
+     }
+     return;
+   }
+
+   int toPmtNumber(int ib, int ic) 
+   {
+     int ipmt=-1;
+     if(ic<NCPMT) ipmt=ic+NCPMT*ib;
+     else ipmt = ib+NPMT; 
+     return ipmt;
    }
 
    Double_t baselineNominal[NPMT];
@@ -133,6 +139,7 @@ public :
    TH1D* hPeaks[NPMT];
    TH1D* hFFT[NPMT];
    TH1D* hHitQ[NPMT];
+   TH1D* hNHits[NPMT];
    TH1D* hQMax[NPMT];
 
    TH1D* hCounts[NPMT];

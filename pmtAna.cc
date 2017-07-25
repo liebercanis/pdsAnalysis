@@ -22,39 +22,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
   fFFT = TVirtualFFT::FFT(1, &nFFTSize, "R2C M K");
   fInverseFFT = TVirtualFFT::FFT(1, &nFFTSize, "C2R M K");
 
-  
-  Int_t jpmt=0;
-  // nominal baselines 
-  baselineNominal[jpmt++]=13565.9;
-  baselineNominal[jpmt++]=13409.8;
-  baselineNominal[jpmt++]=13581.9;
-  baselineNominal[jpmt++]=13494.1;
-  baselineNominal[jpmt++]=13485.9;
-  baselineNominal[jpmt++]=13486.3;
-  baselineNominal[jpmt++]=13492.5;
-  baselineNominal[jpmt++]=13669  ;
-  baselineNominal[jpmt++]=13485.3;
-  baselineNominal[jpmt++]=13450.1;
-  baselineNominal[jpmt++]=13516.4;
-  baselineNominal[jpmt++]=13499.5;
-  baselineNominal[jpmt++]=13450.8;
-  baselineNominal[jpmt++]=13568  ;
-  baselineNominal[jpmt++]=13502.8;
-  baselineNominal[jpmt++]=13462.5;
-  baselineNominal[jpmt++]=13369.8;
-  baselineNominal[jpmt++]=13457.3;
-  baselineNominal[jpmt++]=13419.1;
-  baselineNominal[jpmt++]=13393.7;
-  baselineNominal[jpmt++]=13298.4;
-  baselineNominal[jpmt++]=13315.6;
-  baselineNominal[jpmt++]=13528.7;
-  baselineNominal[jpmt++]=13440.8; 
-
-  printf(" nominal pmt baselines \n");
-  for(Int_t jpmt=0; jpmt<NPMT; ++jpmt) printf(" %i= %.1f ; ",jpmt,baselineNominal[jpmt]);
-  printf("\n");
-
-   // open ouput file and make some histograms
+  // open ouput file and make some histograms
   TString outputFileName = TString("pdsOutput/pmtAna_")+tag+ TString(".root");
   TFile *outfile = new TFile(outputFileName,"recreate");
   outfile->cd();
@@ -74,7 +42,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
   // histos 
   hOcc =  new TH1D("occupancy","occupancy by pmt",NPMT,0,NPMT);
   hOcc->SetXTitle(" pmt number ");
-  hOcc->SetYTitle(" qtot>500 ");
+  hOcc->SetYTitle(" hits per event ");
   hNoise = new TH1D("noise","baseline subtracted noise by pmt",NPMT,0,NPMT);
   hNoise->SetXTitle(" pmt number ");
   hBase = new TH1D("base","baseline by pmt",NPMT,0,NPMT);
@@ -89,7 +57,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
   for(UInt_t ib=0; ib<NB; ++ib) {
     for(UInt_t ic=0; ic<NC; ++ic) {
       int ipmt = toPmtNumber(ib,ic);
-      if(ipmt<0) continue;
+      if(ipmt<0||ipmt>=NPMT) continue;
       hname.Form("Samples_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form("Samples board%u channel%u pmt%u",ib,ic,ipmt);
       hSamples[ipmt] = new TH1D(hname,htitle,NS,0,NS);
@@ -125,6 +93,12 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
       hQMax[ipmt] = new TH1D(hname,htitle,100,0,500);
       hQMax[ipmt]->SetXTitle(" q max (ADC counts) ");
 
+      hname.Form("NHits_b%u_ch%u_pmt%u",ib,ic,ipmt);
+      htitle.Form(" Hits per event c board%u channel%u pmt %u",ib,ic,ipmt);
+      hNHits[ipmt] = new TH1D(hname,htitle,20,0,20);
+      hNHits[ipmt]->SetXTitle(" number of hits per event ");
+      
+
 
     }
   }
@@ -136,62 +110,59 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
   outfile->Write();
   // do some plotting
 
-  /*
 
-  TString canname;
-  enum {NCAN=6};
-  TCanvas *can1[NCAN];
-  TCanvas *can2[NCAN];
-  TCanvas *can3[NCAN];
-  TCanvas *can4[NCAN];
-  TCanvas *can5[NCAN];
+  if(0) {
+    TString canname;
+    enum {NCAN=7};
+    TCanvas *can1[NCAN];
+    TCanvas *can2[NCAN];
+    TCanvas *can3[NCAN];
+    TCanvas *can4[NCAN];
+    TCanvas *can5[NCAN];
 
-  int ican=-1;
-  int ip=0;
-  for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
-    if(ipmt%4==0) {
-      ip=0;
-      ++ican;
-      canname.Form("FFT-set%i-run-%s",ican,tag.Data());
-      can1[ican] = new TCanvas(canname,canname);
-      can1[ican]->Divide(1,4);
-      canname.Form("counts-set%i-run-%s",ican,tag.Data());
-      can2[ican] = new TCanvas(canname,canname);
-      can2[ican]->Divide(1,4);
-      canname.Form("samples-set%i-run-%s",ican,tag.Data());
-      can3[ican] = new TCanvas(canname,canname);
-      can3[ican]->Divide(1,4);
-      canname.Form("hitCharge-set%i-run-%s",ican,tag.Data());
-      can4[ican] = new TCanvas(canname,canname);
-      can4[ican]->Divide(1,4);
-      canname.Form("qMax-set%i-run-%s",ican,tag.Data());
-      can5[ican] = new TCanvas(canname,canname);
-      can5[ican]->Divide(1,4);
-
-
-
+    int ican=-1;
+    int ip=0;
+    for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
+      if(ipmt%3==0) {
+        ip=0;
+        ++ican;
+        canname.Form("FFT-set%i-run-%s",ican,tag.Data());
+        can1[ican] = new TCanvas(canname,canname);
+        can1[ican]->Divide(1,3);
+        canname.Form("counts-set%i-run-%s",ican,tag.Data());
+        can2[ican] = new TCanvas(canname,canname);
+        can2[ican]->Divide(1,3);
+        canname.Form("samples-set%i-run-%s",ican,tag.Data());
+        can3[ican] = new TCanvas(canname,canname);
+        can3[ican]->Divide(1,3);
+        canname.Form("hitCharge-set%i-run-%s",ican,tag.Data());
+        can4[ican] = new TCanvas(canname,canname);
+        can4[ican]->Divide(1,3);
+        canname.Form("qMax-set%i-run-%s",ican,tag.Data());
+        can5[ican] = new TCanvas(canname,canname);
+        can5[ican]->Divide(1,3);
+      }
+      can1[ican]->cd(ip+1); hFFT[ipmt]->Draw();
+      can4[ican]->cd(ip+1); gPad->SetLogy(); hHitQ[ipmt]->Draw();
+      can5[ican]->cd(ip+1); gPad->SetLogy(); hQMax[ipmt]->Draw();
+      can3[ican]->cd(ip+1); 
+      hPeaks[ipmt]->Draw();
+      hSamples[ipmt]->Draw("sames");
+      can2[ican]->cd(ip+1);  gPad->SetLogy(); hCounts[ipmt]->Draw();
+      ++ip;
     }
-    can1[ican]->cd(ip+1); hFFT[ipmt]->Draw();
-    can4[ican]->cd(ip+1); gPad->SetLogy(); hHitQ[ipmt]->Draw();
-    can5[ican]->cd(ip+1); gPad->SetLogy(); hQMax[ipmt]->Draw();
-    can3[ican]->cd(ip+1); 
-    hPeaks[ipmt]->Draw();
-    hSamples[ipmt]->Draw("sames");
-    can2[ican]->cd(ip+1);  gPad->SetLogy(); hCounts[ipmt]->Draw();
-    ++ip;
-  }
 
-  for(int ican=0; ican<NCAN; ++ican) {
-    can1[ican]->Print(".pdf");
-    can2[ican]->Print(".pdf");
-    can3[ican]->Print(".pdf");
-    can4[ican]->Print(".pdf");
-    can5[ican]->Print(".pdf");
+    for(int ican=0; ican<NCAN; ++ican) {
+      can1[ican]->Print(".pdf");
+      can2[ican]->Print(".pdf");
+      can3[ican]->Print(".pdf");
+      can4[ican]->Print(".pdf");
+      can5[ican]->Print(".pdf");
+    }
   }
- */
-
 
 }
+
 
 pmtAna::~pmtAna()
 {
@@ -215,7 +186,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
    for (Long64_t jentry=0; jentry<nloop;jentry++) {
       Long64_t ientry = LoadTree(jentry);
       if (ientry < 0) break;
-      if(jentry%1000==0) printf(" \t.... %lld \n",jentry);
+      if(jentry%100==0) printf(" \t.... %lld \n",jentry);
       nbytes += fChain->GetEntry(jentry);
 
       // save event info 
@@ -234,7 +205,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
         for(UInt_t ic=0; ic<NC; ++ic) {
           // get pmt number
           int ipmt = toPmtNumber(ib,ic);
-          if(ipmt<0) continue;
+          if(ipmt<0||ipmt>=NPMT) continue;
           // make a vector of samples for sorting.
           sdigi.clear();
           ddigi.clear();
@@ -254,7 +225,8 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
           hBase->SetBinError(ipmt+1,hBase->GetBinError(ipmt+1)+baselineSigma);
           double noise = std::abs( sdigi[0.68*sdigi.size()] - baselineMedian);
           hNoise->SetBinContent(ipmt+1,hNoise->GetBinContent(ipmt+1)+noise);
-          hBaseline[ipmt]->Fill(baselineMedian-baselineNominal[ipmt]);
+          if(ientry==0) baselineNominal[ipmt]= baselineMedian;
+          else hBaseline[ipmt]->Fill(baselineMedian-baselineNominal[ipmt]);
          
           if(ientry==0) hFFT[ipmt]=FFTFilter(ipmt);
           
@@ -273,12 +245,14 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
             if(is>300&&is<1000) sum+=digi;
           }
           hCounts[ipmt]->Fill(sum);
-          if(sum>500) hOcc->Fill(ipmt+1,1);
+          //if(sum>500) hOcc->Fill(ipmt+1,1);
 
           // peak finding
-          std::vector<Int_t> peakTime = findPeaks(ddigi,20.0*noise,3.0*noise);
-          //std::vector<Int_t> peakTime = findMaxPeak(ddigi,8.0*noise,3.0*noise);
+          //std::vector<Int_t> peakTime = findPeaks(ddigi,20.0*noise,3.0*noise);
+          std::vector<Int_t> peakTime = findMaxPeak(ddigi,8.0*noise,3.0*noise);
           pmtEvent->nhits = findHits(ipmt,sum,peakTime,ddigi);
+          hOcc->Fill(ipmt+1,pmtEvent->nhits);
+          hNHits[ipmt]->Fill(pmtEvent->nhits);
           //printf(" event %i nhits %i \n", pmtEvent->event, pmtEvent->nhits );
           for (UInt_t ip = 0; ip < peakTime.size(); ip++) {
             Int_t bin = peakTime[ip];
@@ -436,7 +410,6 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
   for(UInt_t il=0; il<hitList.size(); ++il) {
     TPmtHit phit;
     hitTime=hitList[il];
-    Double_t length = hitTime.size(); 
     Double_t qhit=0;
     UInt_t peakt=0;
     Double_t qpeak=0;
@@ -464,6 +437,7 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     phit.offset=0;
     phit.nsamples=phit.qsample.size();
     //
+    Double_t length = TMath::Abs(phit.tstop-phit.tstart)+1;
     ntHit->Fill(ipmt,sum,peakt,length,qpeak,qhit,phit.fwhm,phit.ratio);
     hHitQ[ipmt]->Fill(qhit);
     //printf(" \t hit %i start %i end %i  length %i qhit %f  \n",il, hitTime[hitTime.size()-1],hitTime[0],hitTime.size(),qhit);
