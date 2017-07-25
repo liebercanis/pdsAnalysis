@@ -36,7 +36,7 @@ for ((a=$FIRST; a <= $LAST ; a++)) ; do  # Double parentheses, and naked "LIMIT"
     echo "#!/bin/bash -l" >> $JOBNAME
     echo "export ROOTSYS=/project/projectdirs/captain/releases/LCGCMT/2.0.4/LCG_Settings/../EXTERNALS/ROOT/5.34.34/x86_64-linux-gcc44-opt" >> $JOBNAME
     echo "source $ROOTSYS/bin/thisroot.sh" >> $JOBNAME
-    echo "/Dglobal/homes/m/mgold/mgold/pdsAnalysis/runAna $TAG $NEV" >> $JOBNAME
+    echo "/global/homes/m/mgold/mgold/pdsAnalysis/runAna $TAG $NEV" >> $JOBNAME
     cat $JOBNAME
     qsub -l h_vmem=2G $JOBNAME 
   else 
