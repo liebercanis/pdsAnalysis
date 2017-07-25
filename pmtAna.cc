@@ -3,7 +3,7 @@
 pmtAna::pmtAna(TString tag, Int_t maxLoop)
 {
   fChain=NULL;
-  TString fileName = TString("/global/homes/m/mgold/mgold/pdsAnalysis/pdsData/PDSout_") + TString(tag) + TString(".root");
+  TString fileName = TString("pdsData/PDSout_") + TString(tag) + TString(".root");
   printf(" looking for file %s\n",fileName.Data());
   TFile *f = new TFile(fileName,"readonly");
   if(!f) {
@@ -55,7 +55,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
   printf("\n");
 
    // open ouput file and make some histograms
-  TString outputFileName = TString("pmtAna_")+tag+ TString(".root");
+  TString outputFileName = TString("pdsOutput/pmtAna_")+tag+ TString(".root");
   TFile *outfile = new TFile(outputFileName,"recreate");
   outfile->cd();
   printf(" opening output file %s \n",outputFileName.Data());
@@ -68,7 +68,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
 
   //ntuples
   ntDigi = new TNtuple("ntDigi"," digi  ","ipmt:idigi:digi"); 
-  ntPmt = new TNtuple("ntPmt"," pmts ","ipmt:tmax:qmax:sum:noise:base");
+  ntPmt = new TNtuple("ntPmt"," pmts ","ipmt:tmax:qmax:sum:noise:base:nhit");
   ntHit = new TNtuple("ntHit", " hits ","ipmt:sum:time:length:qpeak:qhit:fwhm:ratio");
 
   // histos 
@@ -286,7 +286,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
             hPeaks[ipmt]->SetBinContent(bin+1, hPeaks[ipmt]->GetBinContent(bin+1)+ddigi[bin]);
           }
           hQMax[ipmt]->Fill(qmax);
-          ntPmt->Fill(double(ipmt),tmax,qmax,sum,noise,baselineMedian-baselineNominal[ipmt]);
+          ntPmt->Fill(double(ipmt),tmax,qmax,sum,noise,baselineMedian-baselineNominal[ipmt],pmtEvent->nhits);
           pmtEvent->qmax.push_back(qmax);
           pmtEvent->qsum.push_back(sum);
         }
