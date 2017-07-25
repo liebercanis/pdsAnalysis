@@ -6,10 +6,10 @@ then
 fi
 TAG=$1
 # default is read all 
-NMAX=0
-if [ $# > 2 ]
-then
+if [ -z "$2" ]; then
+  NMAX=0
+  else 
   NMAX=$2
 fi
 echo root  -q -b "pmtAna.cc++(\"$TAG\",$NMAX)"
-root -q -b " pmtAna.cc++(\"$TAG\",$NMAX)"
+#root -q -b " pmtAna.cc++(\"$TAG\",$NMAX)"
