@@ -25,15 +25,15 @@ echo " OUTDIR=$OUTDIR"
 ZERO=0
 
 for ((a=$FIRST; a <= $LAST ; a++)) ; do  # Double parentheses, and naked "LIMIT"
-  length=${#a}
-  echo "length of a is $length zero = $ZERO"
+  b=$a
+  length=${#b}
   while [ $length -lt 4 ] ; do
-    a=$ZERO$a
-    length=${#a}
+    b=$ZERO$b
+    length=${#b}
   done
-  echo "a = $a "
-  TAG=07-$DAY-${a}_0
+  TAG=07-$DAY-${b}_0
   INFILE=PDSout_${TAG}.root
+  echo "infile = $INFILE"
   if [  -e $DATADIR/$INFILE ]; then
     JOBNAME=pdsjob-$TAG-$ATTRIB.sh
     if [ -e $JOBNAME ]; then
