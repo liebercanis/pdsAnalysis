@@ -16,6 +16,7 @@ enum {NPMT=NB*NCPMT};
   TH1D* hCounts[NPMT];
   TH1D* hBaseline[NPMT];
 
+  TH1D* hQHitCut[NPMT];
   
 // returns -1 if pmt does not exist 
 // populate 3 boards, each from channel 0-6.  Channel 7 is the RF pulse. 
@@ -128,6 +129,34 @@ void canPlots(TString tag)
     }
 }
 
+
+void newCanPlots(TString tag)
+{
+    TString canname;
+    enum {NCAN=7};
+    TCanvas *can1[NCAN];
+
+    int ican=-1;
+    int ip=0;
+    for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
+      if(ipmt%3==0) {
+        ip=0;
+        ++ican;
+        canname.Form("QhitCut-set%i-run-%s",ican,tag.Data());
+        can1[ican] = new TCanvas(canname,canname);
+        can1[ican]->Divide(1,3);
+      }
+      can1[ican]->cd(ip+1); hQHitCut[ipmt]->Draw();
+      ++ip;
+    }
+
+    for(int ican=0; ican<NCAN; ++ican) {
+      can1[ican]->Print(".pdf");
+    }
+}
+
+
+
 void ana(TString tag= "07-21-1740_0")
 {
   TString inputFileName = TString("../pdsOutput/pmtAna_")+tag+TString(".root");
@@ -148,19 +177,46 @@ void ana(TString tag= "07-21-1740_0")
   TFile *outfile = new TFile(outputFileName,"recreate");
   printf(" opening output file %s \n",outputFileName.Data());
 
+
+    
+  TString hname;
+  TString htitle;
+
+  for(UInt_t ib=0; ib<NB; ++ib) {
+    for(UInt_t ic=0; ic<NC; ++ic) {
+      int ipmt = toPmtNumber(ib,ic);
+      if(ipmt<0||ipmt>=NPMT) continue;
+      hname.Form("QhitCut_b%u_ch%u_pmt%u",ib,ic,ipmt);
+      htitle.Form("Qhit length<150 board%u channel%u pmt%u",ib,ic,ipmt);
+      hQHitCut[ipmt] = new TH1D(hname,htitle,250,0,500);
+      hQHitCut[ipmt]->SetXTitle(" ADC counts ");
+    }
+  }
+
+
   
-  getFileHistograms(infile);
-  canPlots(tag);
+  //getFileHistograms(infile);
+  //canPlots(tag);
 
   
   TPmtEvent *ev = new TPmtEvent();
   pmtTree->SetBranchAddress("pmtEvent",&ev);
 
-  for(unsigned entry =0; entry < 200; ++entry ) {
+  std::vector<TPmtHit>  hit;
+  for(unsigned entry =0; entry < aSize; ++entry ) {
     pmtTree->GetEntry(entry);
-    if(entry%100==0) printf("\t entry %i hits %i \n",entry,ev->nhits);
+    hit.clear();
+    hit = ev->hit;
+    if(entry%100==0) printf("...entry %i hits %lu \n",entry,hit.size());
+    for(int ihit =0; ihit < hit.size(); ++ihit) {
+      TPmtHit* phit = &(ev->hit[ihit]);
+      int length = TMath::Abs(phit->tstop-phit->tstart)+1;
+      //printf(" \t %i %i ipmt %i length %i qhit %f \n",entry,ihit,phit->ipmt,length,phit->qhit);
+     if(length<150) hQHitCut[phit->ipmt]->Fill(phit->qhit);
+    }
   }
 
   // end of ana 
+  newCanPlots(tag);
   outfile->Write();
 }

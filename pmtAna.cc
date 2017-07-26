@@ -188,6 +188,8 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
       if (ientry < 0) break;
       if(jentry%100==0) printf(" \t.... %lld \n",jentry);
       nbytes += fChain->GetEntry(jentry);
+      // clear the event
+      pmtEvent->clear();
 
       // save event info 
       //pmtEvent.run;
@@ -250,9 +252,9 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
           // peak finding
           //std::vector<Int_t> peakTime = findPeaks(ddigi,20.0*noise,3.0*noise);
           std::vector<Int_t> peakTime = findMaxPeak(ddigi,8.0*noise,3.0*noise);
-          pmtEvent->nhits = findHits(ipmt,sum,peakTime,ddigi);
-          hOcc->Fill(ipmt+1,pmtEvent->nhits);
-          hNHits[ipmt]->Fill(pmtEvent->nhits);
+          Int_t nhits = findHits(ipmt,sum,peakTime,ddigi);
+          hOcc->Fill(ipmt+1,nhits);
+          hNHits[ipmt]->Fill(nhits);
           //printf(" event %i nhits %i \n", pmtEvent->event, pmtEvent->nhits );
           for (UInt_t ip = 0; ip < peakTime.size(); ip++) {
             Int_t bin = peakTime[ip];
@@ -260,11 +262,14 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
             hPeaks[ipmt]->SetBinContent(bin+1, hPeaks[ipmt]->GetBinContent(bin+1)+ddigi[bin]);
           }
           hQMax[ipmt]->Fill(qmax);
-          ntPmt->Fill(double(ipmt),tmax,qmax,sum,noise,baselineMedian-baselineNominal[ipmt],pmtEvent->nhits);
+          ntPmt->Fill(double(ipmt),tmax,qmax,sum,noise,baselineMedian-baselineNominal[ipmt],nhits);
           pmtEvent->qmax.push_back(qmax);
           pmtEvent->qsum.push_back(sum);
         }
       }
+      pmtEvent->nhits= pmtEvent->hit.size();
+      if(jentry%100==0) printf(" \t\t nhits = %ld \n",pmtEvent->nhits);
+
       pmtTree->Fill();
    }
 
