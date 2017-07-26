@@ -17,6 +17,7 @@ enum {NPMT=NB*NCPMT};
   TH1D* hBaseline[NPMT];
 
   TH1D* hQHitCut[NPMT];
+  TH1D* hQHitLength[NPMT];
   
 // returns -1 if pmt does not exist 
 // populate 3 boards, each from channel 0-6.  Channel 7 is the RF pulse. 
@@ -135,6 +136,7 @@ void newCanPlots(TString tag)
     TString canname;
     enum {NCAN=7};
     TCanvas *can1[NCAN];
+    TCanvas *can2[NCAN];
 
     int ican=-1;
     int ip=0;
@@ -145,13 +147,19 @@ void newCanPlots(TString tag)
         canname.Form("QhitCut-set%i-run-%s",ican,tag.Data());
         can1[ican] = new TCanvas(canname,canname);
         can1[ican]->Divide(1,3);
+        canname.Form("QhitLength-set%i-run-%s",ican,tag.Data());
+        can2[ican] = new TCanvas(canname,canname);
+        can2[ican]->Divide(1,3);
+
       }
-      can1[ican]->cd(ip+1); hQHitCut[ipmt]->Draw();
+      can1[ican]->cd(ip+1); gPad->SetLogy();  hQHitCut[ipmt]->Draw();
+      can2[ican]->cd(ip+1); gPad->SetLogy();  hQHitLength[ipmt]->Draw();
       ++ip;
     }
 
     for(int ican=0; ican<NCAN; ++ican) {
       can1[ican]->Print(".pdf");
+      can2[ican]->Print(".pdf");
     }
 }
 
@@ -187,9 +195,17 @@ void ana(TString tag= "07-21-1740_0")
       int ipmt = toPmtNumber(ib,ic);
       if(ipmt<0||ipmt>=NPMT) continue;
       hname.Form("QhitCut_b%u_ch%u_pmt%u",ib,ic,ipmt);
-      htitle.Form("Qhit length<150 board%u channel%u pmt%u",ib,ic,ipmt);
-      hQHitCut[ipmt] = new TH1D(hname,htitle,250,0,500);
+      htitle.Form("Qhit board%u channel%u pmt%u",ib,ic,ipmt);
+      hQHitCut[ipmt] = new TH1D(hname,htitle,200,0,200);
       hQHitCut[ipmt]->SetXTitle(" ADC counts ");
+      hQHitCut[ipmt]->SetYTitle(Form(" # hits %i ",ipmt));
+
+      hname.Form("QhitLength_b%u_ch%u_pmt%u",ib,ic,ipmt);
+      htitle.Form("Qhit/length board%u channel%u pmt%u",ib,ic,ipmt);
+      hQHitLength[ipmt] = new TH1D(hname,htitle,200,0,200);
+      hQHitLength[ipmt]->SetXTitle(" qhit/length (ADC counts) ");
+      hQHitLength[ipmt]->SetYTitle(Form(" # hits %i ",ipmt));
+
     }
   }
 
@@ -212,7 +228,8 @@ void ana(TString tag= "07-21-1740_0")
       TPmtHit* phit = &(ev->hit[ihit]);
       int length = TMath::Abs(phit->tstop-phit->tstart)+1;
       //printf(" \t %i %i ipmt %i length %i qhit %f \n",entry,ihit,phit->ipmt,length,phit->qhit);
-     if(length<150) hQHitCut[phit->ipmt]->Fill(phit->qhit);
+     hQHitCut[phit->ipmt]->Fill(phit->qhit);
+     hQHitLength[phit->ipmt]->Fill(phit->qhit/double(length));
     }
   }
 
