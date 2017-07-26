@@ -13,7 +13,7 @@ else
   NEV=$4
 fi
 
-DATADIR=/global/homes/m/mgold/data/2017/PDS_beamtime_files
+DATADIR=/global/homes/m/mgold/data/2017/PDS_prerun_files
 OUTDIR=/global/homes/m/mgold/data/2017/pdsOuput/
 ATTRIB=alternate
 
