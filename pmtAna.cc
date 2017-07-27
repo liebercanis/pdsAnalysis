@@ -313,8 +313,6 @@ std::vector<Int_t> pmtAna::findMaxPeak(std::vector<Double_t> v, Double_t thresho
 {
   // Produces a list of max digi peak
   std::vector<Int_t> peakTime;
-  Int_t minLength=2;
-  Int_t maxHalfLength=5;
   Int_t klow=0;
   Int_t khigh=0;
   Int_t kover=0;
@@ -360,8 +358,6 @@ std::vector<Int_t> pmtAna::findPeaks(std::vector<Double_t> v, Double_t threshold
 {
   // Produces a list of peaks above the threshold
   std::vector<Int_t> peakTime;
-  Int_t minLength=2;
-  Int_t maxHalfLength=5;
   Int_t klow=0;
   Int_t khigh=0;
   Int_t kover=0;
@@ -409,11 +405,11 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
   for(UInt_t it=nlast; it>0; --it) {
     //printf(" .... %i %i %u %u \n",it,peakTime[it],hitTime.size(),hitList.size());
     bool makeHit=false;
-    if(peakTime[it]-peakTime[it-1]!=1||it==1) makeHit=true;
+    if(peakTime[it]-peakTime[it-1]!=1||(it==1&&hitTime.size()>=minLength)) makeHit=true;
 
     if(makeHit) {
       hitList.push_back(hitTime);
-      //printf(" saving list %i size %i \n",hitList.size(),hitTime.size());
+      if(hitTime.size()<minLength) printf(" WARNING:: saving list %i size %i \n",hitList.size(),hitTime.size());
       //for(UInt_t ih=0; ih<hitTime.size(); ++ih) printf(" \t\t %i t= %i \n",ih,hitTime[ih]);
       hitTime.clear();
       continue;

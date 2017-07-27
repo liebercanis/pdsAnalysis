@@ -36,6 +36,10 @@ public :
   enum {NB=3,NCPMT=7,NC=NCPMT+1,NS=MAXSAMPLES};
   enum {NPMT=NB*NCPMT};
 
+  //peak finding
+  enum {minLength=2,maxHalfLength=5};
+  
+
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
 
