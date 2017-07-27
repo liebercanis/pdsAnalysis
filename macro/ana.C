@@ -165,7 +165,7 @@ void newCanPlots(TString tag)
 
 
 
-void ana(TString tag= "07-21-1740_0")
+void ana(TString tag= "07-26-0914_0")
 {
   TString inputFileName = TString("../pdsOutput/pmtAna_")+tag+TString(".root");
   printf(" opening file %s \n",inputFileName.Data()); 

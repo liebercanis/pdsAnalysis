@@ -201,6 +201,14 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
       pmtEvent->gpsSec=gps_secIntoDay;
       pmtEvent->gpsNs=gps_nsIntoSec;;
 
+       // check if an RF trigger
+       /*
+        if (digitizer_waveforms[1][15][2000] < 8000) {
+            double fulltime = computer_secIntoEpoch+computer_nsIntoSec/1.0E9;
+            printf(" this is a RF trigger %20.9f\n", fulltime);
+        }
+        */
+          
       for(UInt_t ib=0; ib<NB; ++ib) {
         UInt_t time = digitizer_time[ib];
         //printf(" board %u time %u \n",ib,time);
@@ -216,6 +224,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
           // Find the sample median and it's "sigma".
           for (UInt_t is=0; is<NS; ++is) sdigi.push_back(double(digitizer_waveforms[ib][ic][is]));
 
+   
           std::sort(sdigi.begin(), sdigi.end());
           double baselineMedian = sdigi[0.5*double(NS)];
           double baselineSigma = sdigi[0.16*double(NS)];
@@ -250,8 +259,8 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
           //if(sum>500) hOcc->Fill(ipmt+1,1);
 
           // peak finding
-          //std::vector<Int_t> peakTime = findPeaks(ddigi,20.0*noise,3.0*noise);
-          std::vector<Int_t> peakTime = findMaxPeak(ddigi,8.0*noise,3.0*noise);
+          std::vector<Int_t> peakTime = findPeaks(ddigi,20.0*noise,3.0*noise);
+          //std::vector<Int_t> peakTime = findMaxPeak(ddigi,8.0*noise,3.0*noise);
           Int_t nhits = findHits(ipmt,sum,peakTime,ddigi);
           hOcc->Fill(ipmt+1,nhits);
           hNHits[ipmt]->Fill(nhits);
@@ -354,18 +363,19 @@ std::vector<Int_t> pmtAna::findPeaks(std::vector<Double_t> v, Double_t threshold
   Int_t khigh=0;
   Int_t kover=0;
   Int_t vsize = Int_t(v.size());
+  Int_t maxlength=5;
 
   //printf(" findPeaks \n");
   for(Int_t  ibin=0; ibin<= vsize; ++ibin ) {
     if( v[ibin]>threshold) {// starting possible new hit
       // consider this a "seed" and find full hit
       klow=ibin;
-      for(Int_t k=ibin-1; k>=0; --k) {
+      for(Int_t k=ibin-1; k>=max(0,ibin-maxlength); --k) {
         if(v[k]<sthreshold) break;
         klow=k;
       }
       khigh=ibin;
-      for(Int_t k=ibin+1; k<vsize; ++k) {
+      for(Int_t k=ibin+1; k<min(ibin+maxlength,vsize); ++k) {
         if(v[k]<sthreshold) break;
         khigh=k;
       }
