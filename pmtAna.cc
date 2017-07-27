@@ -6,7 +6,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
   TString fileName = TString("pdsData/PDSout_") + TString(tag) + TString(".root");
   printf(" looking for file %s\n",fileName.Data());
   TFile *f = new TFile(fileName,"readonly");
-  if(!f) {
+  if(f->IsZombie()) {
     printf(" couldnt open file %s\n",fileName.Data());
     return;
   }
@@ -201,6 +201,14 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
       pmtEvent->gpsSec=gps_secIntoDay;
       pmtEvent->gpsNs=gps_nsIntoSec;;
 
+       // check if an RF trigger
+       /*
+        if (digitizer_waveforms[1][15][2000] < 8000) {
+            double fulltime = computer_secIntoEpoch+computer_nsIntoSec/1.0E9;
+            printf(" this is a RF trigger %20.9f\n", fulltime);
+        }
+        */
+          
       for(UInt_t ib=0; ib<NB; ++ib) {
         UInt_t time = digitizer_time[ib];
         //printf(" board %u time %u \n",ib,time);
@@ -216,6 +224,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
           // Find the sample median and it's "sigma".
           for (UInt_t is=0; is<NS; ++is) sdigi.push_back(double(digitizer_waveforms[ib][ic][is]));
 
+   
           std::sort(sdigi.begin(), sdigi.end());
           double baselineMedian = sdigi[0.5*double(NS)];
           double baselineSigma = sdigi[0.16*double(NS)];
@@ -250,8 +259,8 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
           //if(sum>500) hOcc->Fill(ipmt+1,1);
 
           // peak finding
-          //std::vector<Int_t> peakTime = findPeaks(ddigi,20.0*noise,3.0*noise);
-          std::vector<Int_t> peakTime = findMaxPeak(ddigi,8.0*noise,3.0*noise);
+          std::vector<Int_t> peakTime = findPeaks(ddigi,4.0*noise,1.0*noise);
+          //std::vector<Int_t> peakTime = findMaxPeak(ddigi,8.0*noise,3.0*noise);
           Int_t nhits = findHits(ipmt,sum,peakTime,ddigi);
           hOcc->Fill(ipmt+1,nhits);
           hNHits[ipmt]->Fill(nhits);
@@ -268,7 +277,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
         }
       }
       pmtEvent->nhits= pmtEvent->hit.size();
-      if(jentry%100==0) printf(" \t\t nhits = %ld \n",pmtEvent->nhits);
+      if(jentry%100==0) printf(" \t\t nhits = %d \n",pmtEvent->nhits);
 
       pmtTree->Fill();
    }
@@ -304,11 +313,11 @@ std::vector<Int_t> pmtAna::findMaxPeak(std::vector<Double_t> v, Double_t thresho
 {
   // Produces a list of max digi peak
   std::vector<Int_t> peakTime;
-  Int_t minLength=3;
   Int_t klow=0;
   Int_t khigh=0;
   Int_t kover=0;
   Int_t vsize = Int_t(v.size());
+  
 
   Double_t vmax=0;
   Int_t    imax=0;
@@ -323,12 +332,12 @@ std::vector<Int_t> pmtAna::findMaxPeak(std::vector<Double_t> v, Double_t thresho
 
   // consider this a "seed" and find full hit
   klow=imax;
-  for(Int_t k=imax-1; k>=0; --k) {
+  for(Int_t k=imax-1; k>=max(0,imax-maxHalfLength); --k) {
     if(v[k]<sthreshold) break;
     klow=k;
   }
   khigh=imax;
-  for(Int_t k=imax+1; k<vsize; ++k) {
+  for(Int_t k=imax+1; k<min(imax+maxHalfLength,vsize); ++k) {
     if(v[k]<sthreshold) break;
     khigh=k;
   }
@@ -349,7 +358,6 @@ std::vector<Int_t> pmtAna::findPeaks(std::vector<Double_t> v, Double_t threshold
 {
   // Produces a list of peaks above the threshold
   std::vector<Int_t> peakTime;
-  Int_t minLength=5;
   Int_t klow=0;
   Int_t khigh=0;
   Int_t kover=0;
@@ -360,12 +368,12 @@ std::vector<Int_t> pmtAna::findPeaks(std::vector<Double_t> v, Double_t threshold
     if( v[ibin]>threshold) {// starting possible new hit
       // consider this a "seed" and find full hit
       klow=ibin;
-      for(Int_t k=ibin-1; k>=0; --k) {
+      for(Int_t k=ibin-1; k>=max(0,ibin-maxHalfLength); --k) {
         if(v[k]<sthreshold) break;
         klow=k;
       }
       khigh=ibin;
-      for(Int_t k=ibin+1; k<vsize; ++k) {
+      for(Int_t k=ibin+1; k<min(ibin+maxHalfLength,vsize); ++k) {
         if(v[k]<sthreshold) break;
         khigh=k;
       }
@@ -397,11 +405,11 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
   for(UInt_t it=nlast; it>0; --it) {
     //printf(" .... %i %i %u %u \n",it,peakTime[it],hitTime.size(),hitList.size());
     bool makeHit=false;
-    if(peakTime[it]-peakTime[it-1]!=1||it==1) makeHit=true;
+    if(peakTime[it]-peakTime[it-1]!=1||(it==1&&hitTime.size()>=minLength)) makeHit=true;
 
     if(makeHit) {
       hitList.push_back(hitTime);
-      //printf(" saving list %i size %i \n",hitList.size(),hitTime.size());
+      if(hitTime.size()<minLength) printf(" WARNING:: saving list %i size %i \n",hitList.size(),hitTime.size());
       //for(UInt_t ih=0; ih<hitTime.size(); ++ih) printf(" \t\t %i t= %i \n",ih,hitTime[ih]);
       hitTime.clear();
       continue;
