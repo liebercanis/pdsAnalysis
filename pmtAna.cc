@@ -6,7 +6,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
   TString fileName = TString("pdsData/PDSout_") + TString(tag) + TString(".root");
   printf(" looking for file %s\n",fileName.Data());
   TFile *f = new TFile(fileName,"readonly");
-  if(!f) {
+  if(f->IsZombie()) {
     printf(" couldnt open file %s\n",fileName.Data());
     return;
   }
@@ -259,7 +259,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
           //if(sum>500) hOcc->Fill(ipmt+1,1);
 
           // peak finding
-          std::vector<Int_t> peakTime = findPeaks(ddigi,20.0*noise,3.0*noise);
+          std::vector<Int_t> peakTime = findPeaks(ddigi,4.0*noise,1.0*noise);
           //std::vector<Int_t> peakTime = findMaxPeak(ddigi,8.0*noise,3.0*noise);
           Int_t nhits = findHits(ipmt,sum,peakTime,ddigi);
           hOcc->Fill(ipmt+1,nhits);
@@ -277,7 +277,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
         }
       }
       pmtEvent->nhits= pmtEvent->hit.size();
-      if(jentry%100==0) printf(" \t\t nhits = %ld \n",pmtEvent->nhits);
+      if(jentry%100==0) printf(" \t\t nhits = %d \n",pmtEvent->nhits);
 
       pmtTree->Fill();
    }
@@ -313,11 +313,13 @@ std::vector<Int_t> pmtAna::findMaxPeak(std::vector<Double_t> v, Double_t thresho
 {
   // Produces a list of max digi peak
   std::vector<Int_t> peakTime;
-  Int_t minLength=3;
+  Int_t minLength=2;
+  Int_t maxHalfLength=5;
   Int_t klow=0;
   Int_t khigh=0;
   Int_t kover=0;
   Int_t vsize = Int_t(v.size());
+  
 
   Double_t vmax=0;
   Int_t    imax=0;
@@ -332,12 +334,12 @@ std::vector<Int_t> pmtAna::findMaxPeak(std::vector<Double_t> v, Double_t thresho
 
   // consider this a "seed" and find full hit
   klow=imax;
-  for(Int_t k=imax-1; k>=0; --k) {
+  for(Int_t k=imax-1; k>=max(0,imax-maxHalfLength); --k) {
     if(v[k]<sthreshold) break;
     klow=k;
   }
   khigh=imax;
-  for(Int_t k=imax+1; k<vsize; ++k) {
+  for(Int_t k=imax+1; k<min(imax+maxHalfLength,vsize); ++k) {
     if(v[k]<sthreshold) break;
     khigh=k;
   }
@@ -358,24 +360,24 @@ std::vector<Int_t> pmtAna::findPeaks(std::vector<Double_t> v, Double_t threshold
 {
   // Produces a list of peaks above the threshold
   std::vector<Int_t> peakTime;
-  Int_t minLength=5;
+  Int_t minLength=2;
+  Int_t maxHalfLength=5;
   Int_t klow=0;
   Int_t khigh=0;
   Int_t kover=0;
   Int_t vsize = Int_t(v.size());
-  Int_t maxlength=5;
 
   //printf(" findPeaks \n");
   for(Int_t  ibin=0; ibin<= vsize; ++ibin ) {
     if( v[ibin]>threshold) {// starting possible new hit
       // consider this a "seed" and find full hit
       klow=ibin;
-      for(Int_t k=ibin-1; k>=max(0,ibin-maxlength); --k) {
+      for(Int_t k=ibin-1; k>=max(0,ibin-maxHalfLength); --k) {
         if(v[k]<sthreshold) break;
         klow=k;
       }
       khigh=ibin;
-      for(Int_t k=ibin+1; k<min(ibin+maxlength,vsize); ++k) {
+      for(Int_t k=ibin+1; k<min(ibin+maxHalfLength,vsize); ++k) {
         if(v[k]<sthreshold) break;
         khigh=k;
       }
