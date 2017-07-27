@@ -18,6 +18,7 @@ enum {NPMT=NB*NCPMT};
 
   TH1D* hQHitCut[NPMT];
   TH1D* hQHitLength[NPMT];
+  //TH1D* hQHitTime[NPMT];
   
 // returns -1 if pmt does not exist 
 // populate 3 boards, each from channel 0-6.  Channel 7 is the RF pulse. 
@@ -165,7 +166,7 @@ void newCanPlots(TString tag)
 
 
 
-void ana(TString tag= "07-21-1740_0")
+void ana(TString tag= "07-26-0914_0")
 {
   TString inputFileName = TString("../pdsOutput/pmtAna_")+tag+TString(".root");
   printf(" opening file %s \n",inputFileName.Data()); 
@@ -196,7 +197,7 @@ void ana(TString tag= "07-21-1740_0")
       if(ipmt<0||ipmt>=NPMT) continue;
       hname.Form("QhitCut_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form("Qhit board%u channel%u pmt%u",ib,ic,ipmt);
-      hQHitCut[ipmt] = new TH1D(hname,htitle,200,0,200);
+      hQHitCut[ipmt] = new TH1D(hname,htitle,350,0,3500);
       hQHitCut[ipmt]->SetXTitle(" ADC counts ");
       hQHitCut[ipmt]->SetYTitle(Form(" # hits %i ",ipmt));
 
@@ -211,8 +212,8 @@ void ana(TString tag= "07-21-1740_0")
 
 
   
-  //getFileHistograms(infile);
-  //canPlots(tag);
+  getFileHistograms(infile);
+  canPlots(tag);
 
   
   TPmtEvent *ev = new TPmtEvent();
@@ -228,8 +229,11 @@ void ana(TString tag= "07-21-1740_0")
       TPmtHit* phit = &(ev->hit[ihit]);
       int length = TMath::Abs(phit->tstop-phit->tstart)+1;
       //printf(" \t %i %i ipmt %i length %i qhit %f \n",entry,ihit,phit->ipmt,length,phit->qhit);
-     hQHitCut[phit->ipmt]->Fill(phit->qhit);
-     hQHitLength[phit->ipmt]->Fill(phit->qhit/double(length));
+      // cut on ratio
+      if(phit->ratio<0.4) {
+        hQHitCut[phit->ipmt]->Fill(phit->qhit);
+        hQHitLength[phit->ipmt]->Fill(phit->qhit/double(length));
+      }
     }
   }
 
