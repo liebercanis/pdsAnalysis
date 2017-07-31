@@ -1,0 +1,9 @@
+#!/bin/bash
+if test -z "$1"
+then
+  echo " <tag> (e.g. 07-12-1900_0)  "
+  exit; 
+fi
+TAG=$1
+echo root   "ana.C(\"$TAG\")"
+root " ana.C(\"$TAG\")"
