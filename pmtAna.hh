@@ -29,7 +29,6 @@
 //   ****back to the V1720 
 typedef std::complex<double> Complex;
 
-
 class pmtAna {
 public :
   enum {MAXSAMPLES=2100};
@@ -129,6 +128,7 @@ public :
    TNtuple *ntPmt;
    TNtuple *ntDigi;
    TNtuple *ntHit;
+   TNtuple *ntQual;
    //FFT
    Int_t nFFTSize;
    TH1D* FFTFilter(Int_t pmt); 
@@ -137,9 +137,13 @@ public :
    /// The fft class to take the inverse fourier transform.
    TVirtualFFT *fInverseFFT;
 
+   std::vector<Int_t> findRFTimes(int ipmt,int& maxStep);
+   std::vector<Int_t> rftime21;
+   std::vector<Int_t> rftime22;
+   std::vector<Int_t> rftime23;
 
    // histogram pointers
-   TH1D* hSamples[NPMT];
+   TH1D* hSamples[NPMT+3];  // include RF
    TH1D* hPeaks[NPMT];
    TH1D* hFFT[NPMT];
    TH1D* hHitQ[NPMT];

@@ -37,7 +37,8 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
   //ntuples
   ntDigi = new TNtuple("ntDigi"," digi  ","ipmt:idigi:digi"); 
   ntPmt = new TNtuple("ntPmt"," pmts ","ipmt:tmax:qmax:sum:noise:base:nhit");
-  ntHit = new TNtuple("ntHit", " hits ","ipmt:sum:time:length:qpeak:qhit:fwhm:ratio");
+  ntHit = new TNtuple("ntHit", " hits ","ipmt:sum:time:rftime:length:qpeak:qhit:fwhm:ratio");
+  ntQual = new TNtuple("ntQual", " quality ","s21:rf21:t21:s22:rf22:t22:s23:rf23:t23");
 
   // histos 
   hOcc =  new TH1D("occupancy","occupancy by pmt",NPMT,0,NPMT);
@@ -54,15 +55,23 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
   TString hname;
   TString htitle;
 
+
+
   for(UInt_t ib=0; ib<NB; ++ib) {
     for(UInt_t ic=0; ic<NC; ++ic) {
       int ipmt = toPmtNumber(ib,ic);
-      if(ipmt<0||ipmt>=NPMT) continue;
+      if(ipmt<0) continue;
       hname.Form("Samples_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form("Samples board%u channel%u pmt%u",ib,ic,ipmt);
       hSamples[ipmt] = new TH1D(hname,htitle,NS,0,NS);
       hSamples[ipmt]->SetXTitle(" sample number ");
+    }
+  }
 
+  for(UInt_t ib=0; ib<NB; ++ib) {
+    for(UInt_t ic=0; ic<NC; ++ic) {
+      int ipmt = toPmtNumber(ib,ic);
+      if(ipmt<0||ipmt>=NPMT) continue;
       hname.Form("Peaks_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form("Peaks board%u channel%u pmt%u",ib,ic,ipmt);
       hPeaks[ipmt] = new TH1D(hname,htitle,NS,0,NS);
@@ -190,7 +199,17 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
       nbytes += fChain->GetEntry(jentry);
       // clear the event
       pmtEvent->clear();
-
+      // RF channels 
+      Int_t step21,step22,step23;
+      rftime21 = findRFTimes(21,step21);
+      rftime22 = findRFTimes(22,step22);
+      rftime23 = findRFTimes(23,step23);
+      double time21 = 0; if(rftime21.size()>0) time21 = rftime21[0];
+      double time22 = 0; if(rftime22.size()>0) time22 = rftime22[0];
+      double time23 = 0; if(rftime23.size()>0) time23 = rftime23[0];
+      if(jentry%1==0) printf(" \t.... %lld 21 %i, %i 22 %i,%i 23 %i,%i \n",jentry,step21,rftime21.size(),step22,rftime22.size(),step23,rftime23.size());
+      ntQual->Fill(step21,rftime21.size(),time21,step22,rftime22.size(),time22,step23,rftime23.size(),time23);
+      
       // save event info 
       //pmtEvent.run;
       pmtEvent->event=event_number;
@@ -201,14 +220,6 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
       pmtEvent->gpsSec=gps_secIntoDay;
       pmtEvent->gpsNs=gps_nsIntoSec;;
 
-       // check if an RF trigger
-       /*
-        if (digitizer_waveforms[1][15][2000] < 8000) {
-            double fulltime = computer_secIntoEpoch+computer_nsIntoSec/1.0E9;
-            printf(" this is a RF trigger %20.9f\n", fulltime);
-        }
-        */
-          
       for(UInt_t ib=0; ib<NB; ++ib) {
         UInt_t time = digitizer_time[ib];
         //printf(" board %u time %u \n",ib,time);
@@ -216,6 +227,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
           // get pmt number
           int ipmt = toPmtNumber(ib,ic);
           if(ipmt<0||ipmt>=NPMT) continue;
+              
           // make a vector of samples for sorting.
           sdigi.clear();
           ddigi.clear();
@@ -277,20 +289,23 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
         }
       }
       pmtEvent->nhits= pmtEvent->hit.size();
-      if(jentry%100==0) printf(" \t\t nhits = %d \n",pmtEvent->nhits);
+      if(jentry%100==0) printf(" \t\t jentry %i nhits = %d \n",jentry,pmtEvent->nhits);
 
       pmtTree->Fill();
    }
 
-   // normalize 
-   for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
-     hBase->SetBinContent(ipmt+1, hBase->GetBinContent(ipmt+1)/Double_t(nloop));
-     hBase->SetBinError(ipmt+1, hBase->GetBinError(ipmt+1)/Double_t(nloop));
+   // normalize
 
+   for(Int_t ipmt=0; ipmt<NPMT+3; ++ipmt) {
      //UInt_t sampleNorm = hSamples[ipmt]->GetEntries();
      for(int ibin=1; ibin<= hSamples[ipmt]->GetNbinsX()+1; ++ibin ){   
        hSamples[ipmt]->SetBinContent(ibin, hSamples[ipmt]->GetBinContent(ibin)/Double_t(nloop));
      }
+   }
+
+   for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
+     hBase->SetBinContent(ipmt+1, hBase->GetBinContent(ipmt+1)/Double_t(nloop));
+     hBase->SetBinError(ipmt+1, hBase->GetBinError(ipmt+1)/Double_t(nloop));
 
      UInt_t peakNorm = hPeaks[ipmt]->GetEntries();
      for(int ibin=1; ibin<= hPeaks[ipmt]->GetNbinsX()+1; ++ibin ) {  
@@ -307,6 +322,41 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
  
    printf(" finised looping  %u pmtTree size %llu \n",nloop,pmtTree->GetEntries());
    return nloop;
+}
+ 
+
+std::vector<Int_t> pmtAna::findRFTimes(int ipmt, int& maxStep) 
+{
+  std::vector<Int_t> rftimes;
+  int ib; int ic;
+  fromPmtNumber(ipmt,ib,ic);
+
+  
+  double digiMin=1.0E10;
+  double digiMax=0;
+  for (UInt_t is=0; is<NS; ++is) {
+    if(digitizer_waveforms[ib][ic][is]<digiMin) digiMin=digitizer_waveforms[ib][ic][is];
+    if(digitizer_waveforms[ib][ic][is]>digiMax) digiMax=digitizer_waveforms[ib][ic][is];
+  }
+
+  maxStep = digiMax-digiMin;
+
+  if(maxStep<500) return rftimes;
+
+  // pick off start of rising edge
+  bool isRF=false;
+  for (UInt_t is=0; is<NS; ++is){
+    double step=digiMax-digitizer_waveforms[ib][ic][is];
+    hSamples[ipmt]->SetBinContent(int(is+1),hSamples[ipmt]->GetBinContent(int(is+1))+digitizer_waveforms[ib][ic][is]);
+    if(step>0.75*(digiMax-digiMin)&&!isRF) {
+      rftimes.push_back(is);
+      isRF=true;
+    } else if(step<0.75*(digiMax-digiMin)) {
+      isRF=false;
+    }
+  }
+  //printf(" ipmt %i digimin %f digimax %f size %i \n",ipmt,digiMin,digiMax,rftimes.size());
+  return rftimes;
 }
 
 std::vector<Int_t> pmtAna::findMaxPeak(std::vector<Double_t> v, Double_t threshold, Double_t sthreshold) 
@@ -403,11 +453,12 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
   std::vector<std::vector<Int_t> > hitList;
   UInt_t nlast = peakTime.size()-1;
   for(UInt_t it=nlast; it>0; --it) {
-    //printf(" .... %i %i %u %u \n",it,peakTime[it],hitTime.size(),hitList.size());
+    //printf(" .... %i %i hitTime.size %u hitList.size %u \n",it,peakTime[it],hitTime.size(),hitList.size());
     bool makeHit=false;
     if(peakTime[it]-peakTime[it-1]!=1||(it==1&&hitTime.size()>=minLength)) makeHit=true;
 
     if(makeHit) {
+      //printf(" saving list %i size %i \n",hitList.size(),hitTime.size());
       hitList.push_back(hitTime);
       if(hitTime.size()<minLength) printf(" WARNING:: saving list %i size %i \n",hitList.size(),hitTime.size());
       //for(UInt_t ih=0; ih<hitTime.size(); ++ih) printf(" \t\t %i t= %i \n",ih,hitTime[ih]);
@@ -423,10 +474,12 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
   for(UInt_t il=0; il<hitList.size(); ++il) {
     TPmtHit phit;
     hitTime=hitList[il];
+   // printf(" %i hitTime.Size %i \n ",il,hitTime.size());
     Double_t qhit=0;
     UInt_t peakt=0;
     Double_t qpeak=0;
     for(UInt_t ih=0; ih<hitTime.size(); ++ih) {
+      //printf(" \t ih = %i time  %i sample %f  ",ih,hitTime[ih],ddigi[hitTime[ih]]);
       phit.qsample.push_back(ddigi[hitTime[ih]]);	
       if(ddigi[hitTime[ih]]>qpeak) {
         peakt=hitTime[ih];
@@ -436,13 +489,18 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     }
     // fwhm
     phit.fwhm=0; 
-    for(UInt_t ih=0; ih<phit.qsample.size(); ++ih) if( phit.qsample[ih] > qpeak/2.0 ) ++phit.fwhm;
+   // printf("\n qhit %f qpeak %f samples size %i \n",qhit,qpeak,phit.qsample.size());
+    for(UInt_t ih=0; ih<phit.qsample.size(); ++ih) {
+      //printf(" %i %f fwhm %f \n ",ih,phit.qsample[ih],phit.fwhm);
+      if( phit.qsample[ih] > qpeak/2.0 ) ++phit.fwhm;
+    }
 
+    //printf(" \t hit %i start %i stop %i  length %i qhit %f  \n",il, hitTime[hitTime.size()-1],hitTime[0],hitTime.size(),qhit);
     // fill in hit
     phit.ipmt=ipmt;
     phit.time=0;
-    phit.tstart=hitTime[0];
-    phit.tstop=hitTime[hitTime.size()-1];
+    phit.tstart=hitTime[hitTime.size()-1];
+    phit.tstop=hitTime[0];
     phit.qhit=qhit;
     phit.qpeak=qpeak;
     phit.ratio=phit.qpeak/phit.qhit;
@@ -451,11 +509,14 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     phit.nsamples=phit.qsample.size();
     //
     Double_t length = TMath::Abs(phit.tstop-phit.tstart)+1;
-    ntHit->Fill(ipmt,sum,peakt,length,qpeak,qhit,phit.fwhm,phit.ratio);
+    // time past latest RF pulse
+    Int_t rft = -99;
+    //if(rfTime22.size()>0) rft=peakt%rfTime22[0];
+
+    ntHit->Fill(ipmt,sum,peakt,rft,length,qpeak,qhit,phit.fwhm,phit.ratio);
     hHitQ[ipmt]->Fill(qhit);
-    //printf(" \t hit %i start %i end %i  length %i qhit %f  \n",il, hitTime[hitTime.size()-1],hitTime[0],hitTime.size(),qhit);
     //for(UInt_t ih=0; ih<times.size(); ++ih) printf(" \t\t %i t= %i \n",ih,times[ih]);
-    //gg/phit.print();
+    //phit.print();
     pmtEvent->hit.push_back(phit);
     ++nhits;
   }
