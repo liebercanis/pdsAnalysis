@@ -18,7 +18,7 @@ const UShort_t bogus = -999;
 UShort_t waveforms[NBOARDS][NPMTS][NSAMPLES];
 const int cWidth=800, cHeight=700;
 int ADCrange = 4095;
-
+TString tag; // event tag
 TFile *tf = 0;
 TTree *pmt_tree = 0;
 TChain *chain = 0;
@@ -78,6 +78,7 @@ void AddChain(const char *infiles, const char *treename = "pmt_tree") {
     chain->SetBranchAddress("digitizer_waveforms", &waveforms);
     
     if (numfiles == 0) { cout << "No files added" << endl; }
+    chain->ls();
     
 }
 
@@ -225,7 +226,7 @@ bool FillHistos(int EvNum, float offsetstepADC = 50.) {
         }
     }
     
-    hmaster->SetTitle(Form("ADC Plot Event %i;Sample (4 ns per sample);ADC Counts",EvNum));
+    hmaster->SetTitle(Form("ADC Plot File %s Event %i;Sample (4 ns per sample);ADC Counts",tag.Data(),EvNum));
     
     return true;
 
@@ -263,75 +264,75 @@ bool SumEvents(bool trim = false, float offsetstepADC = 50.) {
 
 bool DrawEvent(int EvNum, int mask0 = 255, int mask1 = 255, int mask2 = 255, bool showSum = true, float offsetstepADC = 50.) {
     
-    bool status = FillHistos(EvNum, offsetstepADC);
-    status &= SumEvents(false, offsetstepADC);
-    
-    if (!status) { return false; }
-    int mask = 0;
-    
-    bool redraw = false;
-    if ( (mask0 != Mask0) || (mask1 != Mask1) || (mask2 != Mask2) ) { redraw = true; }
-    Mask0 = mask0; Mask1 = mask1; Mask2 = mask2;
-    
-    if (!c1) { c1 = new TCanvas("c1", "", cWidth, cHeight); }
+  bool status = FillHistos(EvNum, offsetstepADC);
+  status &= SumEvents(false, offsetstepADC);
 
-    hmaster->Draw();
-        
-    for (int iB = 0; iB<NBOARDS; ++iB) {
-            
-        if (iB == 0) { mask = Mask0; }
-        else if (iB == 1) { mask = Mask1; }
-        else if (iB == 2) { mask = Mask2; }
-            
-        for (int iC = 0; iC<NPMTS; ++iC) {
-                
-            if (mask & (1 << iC)) {
-                    histoDraw[iB][iC]->Draw("hist same");
-            }
-        }
+  if (!status) { return false; }
+  int mask = 0;
+
+  bool redraw = false;
+  if ( (mask0 != Mask0) || (mask1 != Mask1) || (mask2 != Mask2) ) { redraw = true; }
+  Mask0 = mask0; Mask1 = mask1; Mask2 = mask2;
+
+  if (!c1) { c1 = new TCanvas("c1", "", cWidth, cHeight); }
+
+  hmaster->Draw();
+
+  for (int iB = 0; iB<NBOARDS; ++iB) {
+
+    if (iB == 0) { mask = Mask0; }
+    else if (iB == 1) { mask = Mask1; }
+    else if (iB == 2) { mask = Mask2; }
+
+    for (int iC = 0; iC<NPMTS; ++iC) {
+
+      if (mask & (1 << iC)) {
+        histoDraw[iB][iC]->Draw("hist same");
+      }
     }
+  }
     
-    if (showSum) { hsumDraw->Draw("hist same"); }
+  if (showSum) { hsumDraw->Draw("hist same"); }
     
-    c1->Modified(); c1->Update();
+  c1->Modified(); c1->Update();
     
-    return true;
+  return true;
     
 }
 
 float EstimateTS(int EvNum, float threshold) {
     
-    float peak, total, F90;
-    int pulse0 = 0;
-    int iS;
-    
-    bool status = FillHistos(EvNum);
-    status &= SumEvents(false);
-    
-    if (!status) { return -1.; }
-    
-    for (iS = 400; iS < 550; ++iS) {
-        if (hsum->GetBinContent(iS) < -threshold) {
-            pulse0 = iS;
-            break;
-        }
+  float peak=0, total=0, F90=0;
+  int pulse0 = 0;
+  int iS;
+
+  bool status = FillHistos(EvNum);
+  status &= SumEvents(false);
+
+  if (!status) { return -1.; }
+
+  for (iS = 400; iS < 550; ++iS) {
+    if (hsum->GetBinContent(iS) < -threshold) {
+      pulse0 = iS;
+      break;
     }
+  }
     
-    if (iS == 550) { return -1; }
-        
-        for (int iS = pulse0-5; iS < pulse0 + 23; ++iS) {
-            
-            peak += hsum->GetBinContent(iS);
-            total += hsum->GetBinContent(iS);
-        }
-        for (int iS = pulse0 + 23; iS < pulse0+1200; ++iS) {
-            
-            total += hsum->GetBinContent(iS);
-        }
-        
-        F90 = peak / total;
-        
-    return F90;
+  if (iS == 550) { return -1; }
+
+  for (int iS = pulse0-5; iS < pulse0 + 23; ++iS) {
+
+    peak += hsum->GetBinContent(iS);
+    total += hsum->GetBinContent(iS);
+  }
+  for (int iS = pulse0 + 23; iS < pulse0+1200; ++iS) total += hsum->GetBinContent(iS);
+  
+
+  if(total>0) F90 = peak / total;
+
+  printf("EstimateTS event %i %f \n",EvNum,F90); 
+
+  return F90;
 
 }
 
@@ -371,4 +372,17 @@ int GetMinimum(TH1F *histogram, float &minVal, int startBin, int stopBin, bool S
     
 }
 
+
+void vis(int iEvent=0, TString theTag= "07-22-1408_0") 
+{
+  tag=theTag;
+   TString inputFileName = TString("pdsData/PDSout_")+tag+TString(".root");
+   AddChain(inputFileName);
+  // open ouput file and make some histograms
+  TString outputFileName = TString("visualizer-")+tag+TString(".root");
+  TFile *outfile = new TFile(outputFileName,"recreate");
+  printf(" opening output file %s \n",outputFileName.Data());
+  DrawEvent(iEvent);
+  printf(" DrawEvent(i) \n");
+}
 

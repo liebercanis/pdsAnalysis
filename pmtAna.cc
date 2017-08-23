@@ -1,6 +1,6 @@
 #include "pmtAna.hh"
 
-pmtAna::pmtAna(TString tag, Int_t maxLoop)
+pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
 {
   fChain=NULL;
   TString fileName = TString("pdsData/PDSout_") + TString(tag) + TString(".root");
@@ -38,7 +38,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
   ntDigi = new TNtuple("ntDigi"," digi  ","ipmt:idigi:digi"); 
   ntPmt = new TNtuple("ntPmt"," pmts ","ipmt:tmax:qmax:sum:noise:base:nhit");
   ntHit = new TNtuple("ntHit", " hits ","ipmt:sum:time:rftime:length:qpeak:qhit:fwhm:ratio");
-  ntQual = new TNtuple("ntQual", " quality ","s21:rf21:t21:s22:rf22:t22:s23:rf23:t23");
+  ntQual = new TNtuple("ntQual", " quality ","s1:r1:t1:s2:r2:t2:s3:r3:t3");
 
   // histos 
   hOcc =  new TH1D("occupancy","occupancy by pmt",NPMT,0,NPMT);
@@ -67,7 +67,9 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
       hSamples[ipmt]->SetXTitle(" sample number ");
     }
   }
-
+  hSamplesSum = new TH1D("SampleSum"," samples summed over PMTs",NS,0,NS);
+  hSamplesSum->SetXTitle(" sample number ");
+  
   for(UInt_t ib=0; ib<NB; ++ib) {
     for(UInt_t ic=0; ic<NC; ++ic) {
       int ipmt = toPmtNumber(ib,ic);
@@ -114,12 +116,14 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop)
   //gDirectory->ls();
   
   // loop over entries zero = all 
-  UInt_t nLoop = Loop(maxLoop);
+  UInt_t nLoop = Loop(maxLoop,firstEntry);
 
   outfile->Write();
+  printf(" wrote file %s ",outfile->GetName());
+
+  qualitySummary();
+
   // do some plotting
-
-
   if(0) {
     TString canname;
     enum {NCAN=7};
@@ -179,7 +183,7 @@ pmtAna::~pmtAna()
    delete fChain->GetCurrentFile();
 }
 
-UInt_t pmtAna::Loop(UInt_t nToLoop)
+UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
 {
    if (fChain == 0) return 0;
 
@@ -192,7 +196,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
    if(nToLoop!=0) nloop = nToLoop;
    printf(" entries %lld looping %d \n",nentries,nloop);
   // loop over entries
-   for (Long64_t jentry=0; jentry<nloop;jentry++) {
+   for (Long64_t jentry=firstEntry; jentry<nloop+firstEntry; jentry++) {
       Long64_t ientry = LoadTree(jentry);
       if (ientry < 0) break;
       if(jentry%100==0) printf(" \t.... %lld \n",jentry);
@@ -200,14 +204,18 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
       // clear the event
       pmtEvent->clear();
       // RF channels 
-      Int_t step21,step22,step23;
+      double step21,step22,step23;
       rftime21 = findRFTimes(21,step21);
       rftime22 = findRFTimes(22,step22);
       rftime23 = findRFTimes(23,step23);
+      //UInt_t totalTimes = rftime21.size()+rftime21.size()+rftime21.size();
       double time21 = 0; if(rftime21.size()>0) time21 = rftime21[0];
       double time22 = 0; if(rftime22.size()>0) time22 = rftime22[0];
       double time23 = 0; if(rftime23.size()>0) time23 = rftime23[0];
-      if(jentry%1==0) printf(" \t.... %lld 21 %i, %i 22 %i,%i 23 %i,%i \n",jentry,step21,rftime21.size(),step22,rftime22.size(),step23,rftime23.size());
+      if(rftime21.size()!=rftime22.size()|| rftime21.size()!=rftime23.size()||rftime22.size()!=rftime23.size())
+        printf(" \t ?? .... %lld 21 min %0.f, %i 22 min %0.f,%i 23 min %0.f,%i \n",
+            jentry,step21,rftime21.size(),step22,rftime22.size(),step23,rftime23.size());
+      //if(totalTimes>0) 
       ntQual->Fill(step21,rftime21.size(),time21,step22,rftime22.size(),time22,step23,rftime23.size(),time23);
       
       // save event info 
@@ -224,6 +232,9 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
         UInt_t time = digitizer_time[ib];
         //printf(" board %u time %u \n",ib,time);
         for(UInt_t ic=0; ic<NC; ++ic) {
+
+          // filter waveforms for stuck bits
+          ADCFilter(ib,ic);
           // get pmt number
           int ipmt = toPmtNumber(ib,ic);
           if(ipmt<0||ipmt>=NPMT) continue;
@@ -236,14 +247,13 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
           // Find the sample median and it's "sigma".
           for (UInt_t is=0; is<NS; ++is) sdigi.push_back(double(digitizer_waveforms[ib][ic][is]));
 
-   
           std::sort(sdigi.begin(), sdigi.end());
           double baselineMedian = sdigi[0.5*double(NS)];
           double baselineSigma = sdigi[0.16*double(NS)];
           baselineSigma = std::abs(baselineSigma-baselineMedian);
 
           //baselineSigma = std::abs(baselineSigma-baselineMedian);
-          //noise = sdigi[0.68*sdigi.size()];
+          //noise = sdigi[0.68*sdigi.size()];/
           hBase->SetBinContent(ipmt+1,hBase->GetBinContent(ipmt+1)+baselineMedian);
           hBase->SetBinError(ipmt+1,hBase->GetBinError(ipmt+1)+baselineSigma);
           double noise = std::abs( sdigi[0.68*sdigi.size()] - baselineMedian);
@@ -303,6 +313,16 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
      }
    }
 
+   // sum
+   for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
+     for(int ibin=1; ibin<= hSamples[ipmt]->GetNbinsX()+1; ++ibin ){   
+       hSamplesSum->SetBinContent(ibin, hSamplesSum->GetBinContent(ibin) + hSamples[ipmt]->GetBinContent(ibin) );
+     }
+   }
+
+   
+
+
    for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
      hBase->SetBinContent(ipmt+1, hBase->GetBinContent(ipmt+1)/Double_t(nloop));
      hBase->SetBinError(ipmt+1, hBase->GetBinError(ipmt+1)/Double_t(nloop));
@@ -325,33 +345,45 @@ UInt_t pmtAna::Loop(UInt_t nToLoop)
 }
  
 
-std::vector<Int_t> pmtAna::findRFTimes(int ipmt, int& maxStep) 
+std::vector<Int_t> pmtAna::findRFTimes(int ipmt, double& step) 
 {
   std::vector<Int_t> rftimes;
   int ib; int ic;
   fromPmtNumber(ipmt,ib,ic);
 
+  // find baseline
+  std::vector<UShort_t> udigi; 
+  for (UInt_t is=0; is<NS; ++is) udigi.push_back(digitizer_waveforms[ib][ic][is]);
+  std::sort(udigi.begin(), udigi.end());
+  UShort_t baseline = udigi[0.5*double(NS)];
   
-  double digiMin=1.0E10;
-  double digiMax=0;
+  // looking for negative values.  
+  UShort_t digiMin=MAXADC;
+  //printf(" start %u baaeline %u \n\n",digiMin,baseline);
   for (UInt_t is=0; is<NS; ++is) {
+    digitizer_waveforms[ib][ic][is]=TMath::Min( baseline , digitizer_waveforms[ib][ic][is]);
     if(digitizer_waveforms[ib][ic][is]<digiMin) digiMin=digitizer_waveforms[ib][ic][is];
-    if(digitizer_waveforms[ib][ic][is]>digiMax) digiMax=digitizer_waveforms[ib][ic][is];
   }
-
-  maxStep = digiMax-digiMin;
-
-  if(maxStep<500) return rftimes;
+  
+  step = double(digiMin) - double(baseline);
+  // return if step down is too small
+  if(step>-500) return rftimes;
 
   // pick off start of rising edge
   bool isRF=false;
   for (UInt_t is=0; is<NS; ++is){
-    double step=digiMax-digitizer_waveforms[ib][ic][is];
-    hSamples[ipmt]->SetBinContent(int(is+1),hSamples[ipmt]->GetBinContent(int(is+1))+digitizer_waveforms[ib][ic][is]);
-    if(step>0.75*(digiMax-digiMin)&&!isRF) {
+    double digi = double(digitizer_waveforms[ib][ic][is]) - double(baseline);
+    //printf(" is %i digi %f,%f thresh %f base %f \n",is,double(digitizer_waveforms[ib][ic][is]),digi,0.75*step,double(baseline));
+    //histoDraw[iB][iC]->Fill(iS+0.5, ((1.*waveforms[iB][iC][iS]-baseline)*offsetstepADC/(1.*ADCrange+1.)+offset) );
+    //int ADCrange = 4095;
+    //offsetstepADC = 50.
+    //double digi7 =  digi*50./4096.;
+    //printf(" %i digi %f digi7 %f \n",is,digi,digi7);
+    hSamples[ipmt]->SetBinContent(int(is+1),hSamples[ipmt]->GetBinContent(int(is+1))+digi);
+    if(digi<0.75*step&&!isRF) {
       rftimes.push_back(is);
       isRF=true;
-    } else if(step<0.75*(digiMax-digiMin)) {
+    } else if(digi>0.75*step) {
       isRF=false;
     }
   }
@@ -551,6 +583,87 @@ TH1D* pmtAna::FFTFilter(Int_t ipmt)
     hfft->SetBinContent(i+1,hfft->GetBinContent(i+1)+std::abs(c));
   } 
   return hfft;      
+}
+
+void pmtAna::qualitySummary()
+{
+ // summarize quality
+    Int_t entries = (Int_t) ntQual->GetEntries();
+    //cout<<"Number of quality entries: "<<entries<< endl;
+    Float_t s1,r1,t1,s2,r2,t2,s3,r3,t3;
+    ntQual->SetBranchAddress("r1",&r1);
+    ntQual->SetBranchAddress("r2",&r2);
+    ntQual->SetBranchAddress("r3",&r3);
+    ntQual->SetBranchAddress("s1",&s1);
+    ntQual->SetBranchAddress("s2",&s2);
+    ntQual->SetBranchAddress("s3",&s3);
+    ntQual->SetBranchAddress("t1",&t1);
+    ntQual->SetBranchAddress("t2",&t2);
+    ntQual->SetBranchAddress("t3",&t3);
+     
+    // sums
+    Int_t n555 =0;
+    Int_t n444 =0;
+    Int_t nx55=0;
+    Int_t n5x5=0;
+    Int_t n55x=0;
+    Int_t nx44=0;
+    Int_t n4x4=0;
+    Int_t n44x=0;
+    
+    Int_t nrfTrig=0;
+    Int_t noffTrig=0;
+
+    for (Int_t k=1;k<entries;k++){
+      ntQual->GetEntry(k);
+      if(r1==0&&r2==0&r3==0) ++noffTrig;
+      else ++nrfTrig;
+      if( r1==5&&r2==5&&r3==5) ++n555;
+      if( r1==4&&r2==4&&r3==4) ++n444;
+      if( r1!=5&&r2==5&&r3==5) ++nx55;
+      if( r1==5&&r2!=5&&r3==5) ++n5x5;
+      if( r1==5&&r2==5&&r3!=5) ++n55x;
+
+      if( r1!=4&&r2==4&&r3==4) ++nx44;
+      if( r1==4&&r2!=4&&r3==4) ++n4x4;
+      if( r1==4&&r2==4&&r3!=4) ++n44x;   
+    }
+    
+    printf(" \n QQQQQQQQQ quality summary: \n");
+    printf(" PDS triggers %i \n",noffTrig);
+    printf(" RF  triggers %i \n",nrfTrig);
+    printf(" 555 %i  x55 %i 5x5 %i 55x %i \n n444 x44 %i 4x4 %i 44x %i   \n",n555,nx55,n5x5,n55x,n444,nx44,n4x4,n44x);
+
+
+    printf(" \n PMT averages: \n");
+    for(UInt_t ib=0; ib<NB; ++ib) {
+      for(UInt_t ic=0; ic<NC; ++ic) {
+        // get pmt number
+        int ipmt = toPmtNumber(ib,ic);
+        if(ipmt<0||ipmt>=NPMT) continue;
+        Double_t qsum = hCounts[ipmt]->GetMean(); 
+        Double_t qhit = hHitQ[ipmt]->GetMean(); 
+        printf(" ib %i ic %i ipmt %i mean sum ADC %.2f mean pulse ADC %.2f \n",ib,ic,ipmt,qsum,qhit); 
+      }
+    }
+    
+}
+
+
+void pmtAna::ADCFilter(int iB, int iC) 
+{
+  for (int is = 0; is<MAXSAMPLES; ++is) {
+    if (digitizer_waveforms[iB][iC][is] > MAXADC) {
+      if (is > 0) { digitizer_waveforms[iB][iC][is] = digitizer_waveforms[iB][iC][is-1];}
+      else {
+        int is2 = 0;
+        while (digitizer_waveforms[iB][iC][is2] > MAXADC) {
+          digitizer_waveforms[iB][iC][0] = digitizer_waveforms[iB][iC][is2+1];
+          ++is2;
+        }
+      }
+    }
+  }
 }
 
 

@@ -94,7 +94,7 @@ void setHistStyle(TH1D* h, int color=kBlack, bool stat=false)
   h->SetStats(stat);
   h->SetTitleOffset(1,"Y");
   h->GetYaxis()->SetLabelSize(0.02);
-  h->SetAxisRange(-2*spacer,spacer*NB*NC+2*spacer,"Y");
+  h->SetAxisRange(-4*spacer,spacer*NB*NC+4*spacer,"Y");
 }
 
 
@@ -203,5 +203,6 @@ void plotSummary(int iEvent=0, TString tag= "07-22-1408_0")
       h1->Draw(opt);
     }
   }
+  canA->Print(".pdf");
 }
 

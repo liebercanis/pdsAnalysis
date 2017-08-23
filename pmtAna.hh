@@ -34,7 +34,7 @@ public :
   enum {MAXSAMPLES=2100};
   enum {NB=3,NCPMT=7,NC=NCPMT+1,NS=MAXSAMPLES};
   enum {NPMT=NB*NCPMT};
-
+  enum {MAXADC=4095};
   //peak finding
   enum {minLength=2,maxHalfLength=5};
   
@@ -80,13 +80,13 @@ public :
    TBranch        *b_nSamples;   //!
    TBranch        *b_nData;   //!
 
-   pmtAna(TString tag="07-12-1900_0",Int_t maxLoop=0);
+   pmtAna(TString tag="07-12-1900_0",Int_t maxLoop=0,Int_t firstEntry=0);
    virtual ~pmtAna();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
    virtual Long64_t LoadTree(Long64_t entry);
    virtual void     Init(TTree *tree);
-   UInt_t Loop(UInt_t nToLoop=0);
+   UInt_t Loop(UInt_t nToLoop=0, UInt_t firstEntry=0);
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
 
@@ -97,7 +97,12 @@ public :
    std::vector<Int_t> findPeaks(std::vector<Double_t> v, Double_t threshold,Double_t sthreshold); 
    Int_t findHits(Int_t ipmt, Double_t sum,  std::vector<Int_t> peakTime, std::vector<Double_t> ddigi); 
 
-   double getBaseline(int ipmt ) { return hBase->GetBinContent(ipmt+1); } 
+   double getBaseline(int ipmt ) { return hBase->GetBinContent(ipmt+1); }
+
+   std::vector<Int_t> findRFTimes(int ipmt,double& digiMin);
+   void ADCFilter(int iB, int iC);
+   void qualitySummary();
+   
 
    // returns -1 if pmt does not exist 
    // populate 3 boards, each from channel 0-6.  Channel 7 is the RF pulse. 
@@ -137,13 +142,13 @@ public :
    /// The fft class to take the inverse fourier transform.
    TVirtualFFT *fInverseFFT;
 
-   std::vector<Int_t> findRFTimes(int ipmt,int& maxStep);
    std::vector<Int_t> rftime21;
    std::vector<Int_t> rftime22;
    std::vector<Int_t> rftime23;
 
    // histogram pointers
    TH1D* hSamples[NPMT+3];  // include RF
+   TH1D* hSamplesSum;
    TH1D* hPeaks[NPMT];
    TH1D* hFFT[NPMT];
    TH1D* hHitQ[NPMT];
