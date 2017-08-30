@@ -26,6 +26,7 @@
 #include <TH1F.h>
 #include <TStyle.h>
 #include <TCanvas.h>
+#include <TGraphErrors.h>
 //   ****back to the V1720 
 typedef std::complex<double> Complex;
 
@@ -34,6 +35,7 @@ public :
   enum {MAXSAMPLES=2100};
   enum {NB=3,NCPMT=7,NC=NCPMT+1,NS=MAXSAMPLES};
   enum {NPMT=NB*NCPMT};
+  enum {NALLCH=NB*NC};
   enum {MAXADC=4095};
   //peak finding
   enum {minLength=2,maxHalfLength=5};
@@ -80,7 +82,7 @@ public :
    TBranch        *b_nSamples;   //!
    TBranch        *b_nData;   //!
 
-   pmtAna(TString tag="07-12-1900_0",Int_t maxLoop=0,Int_t firstEntry=0);
+   pmtAna(TString tag="07-22-1408_0",Int_t maxLoop=0,Int_t firstEntry=0);
    virtual ~pmtAna();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
@@ -92,16 +94,18 @@ public :
 
    TTree* pmtTree;
    TPmtEvent* pmtEvent;
+   TFile* outFile;
    
    std::vector<Int_t> findMaxPeak(std::vector<Double_t> v, Double_t threshold,Double_t sthreshold); 
    std::vector<Int_t> findPeaks(std::vector<Double_t> v, Double_t threshold,Double_t sthreshold); 
    Int_t findHits(Int_t ipmt, Double_t sum,  std::vector<Int_t> peakTime, std::vector<Double_t> ddigi); 
 
+   Int_t readGainConstants(TString fileName="gainConstants.txt"); // returns number of gains read
    double getBaseline(int ipmt ) { return hBase->GetBinContent(ipmt+1); }
 
    std::vector<Int_t> findRFTimes(int ipmt,double& digiMin);
    void ADCFilter(int iB, int iC);
-   void qualitySummary();
+   void qualitySummary(TString tag);
    
 
    // returns -1 if pmt does not exist 
@@ -130,6 +134,7 @@ public :
    }
 
    Double_t baselineNominal[NPMT];
+   Double_t gain[NPMT]; //Q = ADC/gain
    TNtuple *ntPmt;
    TNtuple *ntDigi;
    TNtuple *ntHit;
@@ -147,7 +152,7 @@ public :
    std::vector<Int_t> rftime23;
 
    // histogram pointers
-   TH1D* hSamples[NPMT+3];  // include RF
+   TH1D* hSamples[NALLCH];  // include RF
    TH1D* hSamplesSum;
    TH1D* hPeaks[NPMT];
    TH1D* hFFT[NPMT];
