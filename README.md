@@ -41,6 +41,7 @@ here is list of commands I did to get started.
    >cd ..
    // soft links or mkdir to create directories pdsData for input data and pdsOutput for root outputfiles 
    >ln -s  ~/captain/pds/pdsAnalysis/pdsData/
-   >ln -s  ~/captain/pds/pdsAnalysis/pdsObj
+   >ln -s  ~/captain/pds/pdsAnalysis/pdsOb
+   // run with default tag 07-22-1408_0
    >root pmtAna.cc+
 
