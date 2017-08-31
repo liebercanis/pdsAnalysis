@@ -36,12 +36,20 @@ for now, the directory /global/homes/m/mgold/mgold/pdsAnalysis/pdsData is explic
 here is list of commands I did to get started.
 
    >git clone https://github.com/liebercanis/pdsAnalysis.git
+
    >cd pdsAnalysis/obj
+
    >make
+
    >cd ..
-   // soft links or mkdir to create directories pdsData for input data and pdsOutput for root outputfiles 
+
+   // soft links or mkdir to create directories pdsData for input data and pdsOutput for root outputfiles
+
    >ln -s  ~/captain/pds/pdsAnalysis/pdsData/
-   >ln -s  ~/captain/pds/pdsAnalysis/pdsOb
+
+   >ln -s  ~/captain/pds/pdsAnalysis/pdsOutput
+
    // run with default tag 07-22-1408_0
+
    >root pmtAna.cc+
 
