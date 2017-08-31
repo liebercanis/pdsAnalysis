@@ -1,0 +1,31 @@
+%% single PE calibrations from R. Cooper
+%% The letter in the 2nd column is just the data sample I used to extract the SPE.  It can be ignored.  
+%% Board 1, Channels 5,6 needed manual examination.\
+%% You’ll divide by my number.  I.e., ADC PEAK / constant = Num PEs.  
+%% I will look at the pulse integral, because that may be a more robust way to get num PEs. 
+%% That will include another set of parameters.  Let me know how you are estimating the “charge”: peak or integral.
+
+
+B0C0 L 16.067827
+B0C1 L 16.525127
+B0C2 L 14.188653
+B0C3 L 14.454693
+B0C4 L 18.382082 
+B0C5 L 16.412492
+B0C6 L 13.077328
+
+B1C0 N 15.618638 
+B1C1 N 13.337854
+B1C2 N 14.853365
+B1C3 N 13.151699
+B1C4 N 13.937958
+B1C5 L 9.0
+B1C6 B 9.3
+
+B2C0 N 11.376641
+B2C1 L 12.508981
+B2C2 B 12.759682
+B2C3 N 10.936271
+B2C4 L 17.772873
+B2C5 B 17.732332
+B2C6 L 12.473879
