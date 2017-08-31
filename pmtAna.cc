@@ -6,6 +6,9 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
     printf(" cannot read gain constants file so abort \n");
     return;
   }
+  // zero trigger type counters
+  ntrig555=0; ntrig5xx=0; ntrig444=0; ntrig4xx=0; ntrig111=0;ntrig1xx=0; ntrig000=0; ntrig0xx=0;
+  
   fChain=NULL;
   TString fileName = TString("pdsData/PDSout_") + TString(tag) + TString(".root");
   printf(" looking for file %s\n",fileName.Data());
@@ -42,9 +45,8 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
 
   //ntuples
   ntDigi = new TNtuple("ntDigi"," digi  ","ipmt:idigi:digi"); 
-  ntPmt = new TNtuple("ntPmt"," pmts ","ipmt:tmax:qmax:sum:tmaxUn:qmaxUn:sumUn:noise:base:nhit");
+  ntPmt = new TNtuple("ntPmt"," pmts ","trig:ipmt:tmax:qmax:sum:tmaxUn:qmaxUn:sumUn:noise:base:nhit");
   ntHit = new TNtuple("ntHit", " hits ","ipmt:sum:time:rftime:length:qpeak:qhit:fwhm:ratio");
-  ntQual = new TNtuple("ntQual", " quality ","s1:r1:t1:s2:r2:t2:s3:r3:t3");
 
   // histos 
   hOcc =  new TH1D("occupancy","occupancy by pmt",NPMT,0,NPMT);
@@ -57,10 +59,8 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   hBase->Sumw2();
   
     
-  
   TString hname;
   TString htitle;
-
 
 
   for(UInt_t ib=0; ib<NB; ++ib) {
@@ -75,6 +75,21 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   }
   hSamplesSum = new TH1D("SampleSum"," samples summed over PMTs",NS,0,NS);
   hSamplesSum->SetXTitle(" sample number ");
+
+  for(UInt_t ib=0; ib<NB; ++ib) {
+    for(UInt_t ic=0; ic<NC; ++ic) {
+      int ipmt = toPmtNumber(ib,ic);
+      if(ipmt<0||ipmt>=NPMT) continue;
+      hname.Form("SamplesPDS_b%u_ch%u_pmt%u",ib,ic,ipmt);
+      htitle.Form("Samples board%u channel%u pmt%u",ib,ic,ipmt);
+      hSamplesPDS[ipmt] = new TH1D(hname,htitle,NS,0,NS);
+      hSamplesPDS[ipmt]->SetXTitle(" sample number ");
+    }
+  }
+  hSamplesPDSSum = new TH1D("SampleSumPDS"," samples summed over PMTs",NS,0,NS);
+  hSamplesPDSSum->SetXTitle(" sample number ");
+  
+  
   
   for(UInt_t ib=0; ib<NB; ++ib) {
     for(UInt_t ic=0; ic<NC; ++ic) {
@@ -89,9 +104,9 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
       hPeaks[ipmt]->SetFillColor(kRed);
       hPeaks[ipmt]->SetFillStyle(3002);
       
-      hname.Form("Counts_b%u_ch%u_pmt%u",ib,ic,ipmt);
+      hname.Form("Sum_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form(" counts board%u channel%u pmt %u",ib,ic,ipmt);
-      hCounts[ipmt] = new TH1D(hname,htitle,500,0,500);
+      hCounts[ipmt] = new TH1D(hname,htitle,500,0,5000);
       hCounts[ipmt]->SetXTitle(" baseline subtracted summed ADC counts ");
 
       hname.Form("Baseline_b%u_ch%u_pmt%u",ib,ic,ipmt);
@@ -214,21 +229,9 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       if(jentry%100==0) printf(" \t.... %lld nbytes %lld pmtTree entries %lld \n",jentry,nbytes,pmtTree->GetEntries());
       // clear the event
       pmtEvent->clear();
-      // RF channels 
-      double step21,step22,step23;
-      rftime21 = findRFTimes(21,step21);
-      rftime22 = findRFTimes(22,step22);
-      rftime23 = findRFTimes(23,step23);
-      //UInt_t totalTimes = rftime21.size()+rftime21.size()+rftime21.size();
-      double time21 = 0; if(rftime21.size()>0) time21 = rftime21[0];
-      double time22 = 0; if(rftime22.size()>0) time22 = rftime22[0];
-      double time23 = 0; if(rftime23.size()>0) time23 = rftime23[0];
-      if(rftime21.size()!=rftime22.size()|| rftime21.size()!=rftime23.size()||rftime22.size()!=rftime23.size())
-        printf(" \t ?? .... %lld 21 min %0.f %zu, 22 min %0.f %zu, 23 min %0.f %zu \n",
-            jentry,step21,rftime21.size(),step22,rftime22.size(),step23,rftime23.size());
-      //if(totalTimes>0) 
-      ntQual->Fill(step21,rftime21.size(),time21,step22,rftime22.size(),time22,step23,rftime23.size(),time23);
-      
+      // trigger type
+      pmtEvent->trigType = triggerInfo();
+
       // save event info 
       //pmtEvent.run;
       pmtEvent->event=event_number;
@@ -306,16 +309,16 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
             
             ddigi.push_back(digi);
             if(jentry%100==0)ntDigi->Fill(double(ipmt),double(is),digi);
-            hSamples[ipmt]->SetBinContent(int(is+1),hSamples[ipmt]->GetBinContent(int(is+1))+digi);
-            //if(digi>3.0*noise) sum+=digi;
-            if(is>450&&is<470) {
+            if(pmtEvent->trigType == TPmtEvent::TRIG000) hSamplesPDS[ipmt]->SetBinContent(int(is+1),hSamplesPDS[ipmt]->GetBinContent(int(is+1))+digi);
+            else hSamples[ipmt]->SetBinContent(int(is+1),hSamples[ipmt]->GetBinContent(int(is+1))+digi);
+            // here I am not worrying about the difference between noise and gain-corrected noise.  just using gain-corrected noise
+            if(digi>3.0*noise) { 
+              //if(is>450&&is<470) 
               sum+=digi;
               sumUn+=digiUn;
             }
-          }
+          } // loop over digitizations 
           hCounts[ipmt]->Fill(sum);
-          //if(sum>500) hOcc->Fill(ipmt+1,1);
-
           // peak finding
           std::vector<Int_t> peakTime = findPeaks(ddigi,4.0*noise,1.0*noise);
           //std::vector<Int_t> peakTime = findMaxPeak(ddigi,8.0*noise,3.0*noise);
@@ -329,17 +332,16 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
             hPeaks[ipmt]->SetBinContent(bin+1, hPeaks[ipmt]->GetBinContent(bin+1)+ddigi[bin]);
           }
           hQMax[ipmt]->Fill(qmax);
-          ntPmt->Fill(double(ipmt),tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,baselineMedian-baselineNominal[ipmt],nhits);
+          ntPmt->Fill(double(pmtEvent->trigType),double(ipmt),tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,baselineMedian-baselineNominal[ipmt],nhits);
           pmtEvent->qmax.push_back(qmax);
           pmtEvent->qsum.push_back(sum);
-        }
-      }
+        } // channel loop 
+      } // board loop 
       pmtEvent->nhits= pmtEvent->hit.size();
       if(jentry%100==0) printf(" \t\t jentry %lli nhits = %d \n",jentry,pmtEvent->nhits);
-
       pmtTree->Fill();
-   }
-
+   }   // end loop over entries
+   printf(" finised looping  %u pmtTree size %llu \n",nloop,pmtTree->GetEntries());
    // normalize
    for(Int_t ipmt=0; ipmt<NALLCH; ++ipmt) {
      //UInt_t sampleNorm = hSamples[ipmt]->GetEntries();
@@ -347,15 +349,21 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
        hSamples[ipmt]->SetBinContent(ibin, hSamples[ipmt]->GetBinContent(ibin)/Double_t(nloop));
      }
    }
+  for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
+     for(int ibin=1; ibin<= hSamples[ipmt]->GetNbinsX()+1; ++ibin ){   
+       hSamplesPDS[ipmt]->SetBinContent(ibin, hSamplesPDS[ipmt]->GetBinContent(ibin)/Double_t(nloop));
+     }
+   }
+
 
    // sum
    for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
      for(int ibin=1; ibin<= hSamples[ipmt]->GetNbinsX()+1; ++ibin ){   
        hSamplesSum->SetBinContent(ibin, hSamplesSum->GetBinContent(ibin) + hSamples[ipmt]->GetBinContent(ibin) );
+       hSamplesPDSSum->SetBinContent(ibin, hSamplesPDSSum->GetBinContent(ibin) + hSamplesPDS[ipmt]->GetBinContent(ibin) );
      }
    }
 
-   
 
 
    for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
@@ -374,7 +382,6 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
    for(int ibin=1; ibin<=  hNoise->GetNbinsX()+1; ++ibin ) hNoise->SetBinContent(ibin,  hNoise->GetBinContent(ibin)/Double_t(nloop));
    for(int ibin=1; ibin<=  hOcc->GetNbinsX()+1; ++ibin ) hOcc->SetBinContent(ibin,  hOcc->GetBinContent(ibin)/Double_t(nloop));
  
-   printf(" finised looping  %u pmtTree size %llu \n",nloop,pmtTree->GetEntries());
    return nloop;
 }
  
@@ -653,61 +660,66 @@ TH1D* pmtAna::FFTFilter(Int_t ipmt)
   return hfft;      
 }
 
+// trigger information
+Int_t pmtAna::triggerInfo()
+{
+  Int_t type = TPmtEvent::TRIGUNKNOWN; // unknosn 
+  // RF channels 
+  double s1,s2,s3;
+  rftime21 = findRFTimes(21,s1);
+  rftime22 = findRFTimes(22,s2);
+  rftime23 = findRFTimes(23,s3);
+  //UInt_t totalTimes = rftime21.size()+rftime21.size()+rftime21.size();
+  double t1 = 0; if(rftime21.size()>0) t1 = rftime21[0];
+  double t2 = 0; if(rftime22.size()>0) t2 = rftime22[0];
+  double t3 = 0; if(rftime23.size()>0) t3 = rftime23[0];
+
+  Int_t r1 = Int_t(rftime21.size());
+  Int_t r2 = Int_t(rftime22.size());
+  Int_t r3 = Int_t(rftime23.size());
+
+  // determine trigger type and count types 
+  
+  if(r1==0&&r2==0&r3==0) { // zero 
+    type = TPmtEvent::TRIG000;
+    ++ntrig000;
+  } else if (r1==0||r2==0||r3==0) { 
+    type = TPmtEvent::TRIG0XX;
+    ++ntrig5xx; 
+  } else if (r1==5&&r2==5&&r3==5) { //five 
+    type = TPmtEvent::TRIG555; 
+    ++ntrig555;
+  } else if ( r1==5 || r2==5 || r3==5 ) {
+   type = TPmtEvent::TRIG5XX; 
+    ++ntrig5xx;
+  } else if (r1==4&&r2==4&&r3==4) {  //four
+    type = TPmtEvent::TRIG444; 
+    ++ntrig444;
+  } else if ( r1==4 || r2==4 || r3==4 ) {
+   type = TPmtEvent::TRIG4XX; 
+    ++ntrig4xx;
+  }
+  return type;
+ }
+
+// summarize run quality
 void pmtAna::qualitySummary(TString tag)
 {
- // summarize quality
-    Int_t entries = (Int_t) ntQual->GetEntries();
-    if(ntQual->GetEntries()<1) return;
-    //cout<<"Number of quality entries: "<<entries<< endl;
-    Float_t s1,r1,t1,s2,r2,t2,s3,r3,t3;
-    ntQual->SetBranchAddress("r1",&r1);
-    ntQual->SetBranchAddress("r2",&r2);
-    ntQual->SetBranchAddress("r3",&r3);
-    ntQual->SetBranchAddress("s1",&s1);
-    ntQual->SetBranchAddress("s2",&s2);
-    ntQual->SetBranchAddress("s3",&s3);
-    ntQual->SetBranchAddress("t1",&t1);
-    ntQual->SetBranchAddress("t2",&t2);
-    ntQual->SetBranchAddress("t3",&t3);
      
-    // sums
-    Int_t n555 =0;
-    Int_t n444 =0;
-    Int_t nx55=0;
-    Int_t n5x5=0;
-    Int_t n55x=0;
-    Int_t nx44=0;
-    Int_t n4x4=0;
-    Int_t n44x=0;
-    
-    Int_t nrfTrig=0;
-    Int_t noffTrig=0;
-
-    for (Int_t k=1;k<entries;k++){
-      ntQual->GetEntry(k);
-      if(r1==0&&r2==0&r3==0) ++noffTrig;
-      else ++nrfTrig;
-      if( r1==5&&r2==5&&r3==5) ++n555;
-      if( r1==4&&r2==4&&r3==4) ++n444;
-      if( r1!=5&&r2==5&&r3==5) ++nx55;
-      if( r1==5&&r2!=5&&r3==5) ++n5x5;
-      if( r1==5&&r2==5&&r3!=5) ++n55x;
-
-      if( r1!=4&&r2==4&&r3==4) ++nx44;
-      if( r1==4&&r2!=4&&r3==4) ++n4x4;
-      if( r1==4&&r2==4&&r3!=4) ++n44x;   
-    }
-    
     printf(" \n QQQQQQQQQ quality summary %s: \n",tag.Data());
-    printf(" PDS triggers %i \n",noffTrig);
+
+    printf(" PDS triggers %i \n",ntrig000);
+    Int_t nrfTrig = ntrig555+ntrig444;
     printf(" RF  triggers %i \n",nrfTrig);
-    printf(" 555 %i  x55 %i 5x5 %i 55x %i \n n444 %i x44 %i 4x4 %i 44x %i   \n",n555,nx55,n5x5,n55x,n444,nx44,n4x4,n44x);
+    printf(" 555 %i  n5xx= %i n444= %i n4xx= %i n111= %i n1xx= %i n000= %i n0xx=  %i   \n",
+        ntrig555,ntrig5xx,ntrig444,ntrig4xx,ntrig111,ntrig1xx,ntrig000,ntrig1xx);
 
     Int_t pmtEntries = (Int_t) ntPmt->GetEntries();
     if(ntPmt->GetEntries()<1) return;
     //cout<<"Number of quality entries: "<<entries<< endl;
-    Float_t fpmt,tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,base,nhit;
+    Float_t ftrig,fpmt,tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,base,nhit;
 
+    ntPmt->SetBranchAddress("itrig",&ftrig);
     ntPmt->SetBranchAddress("ipmt",&fpmt);
     ntPmt->SetBranchAddress("tmax",&tmax);
     ntPmt->SetBranchAddress("qmax",&qmax);

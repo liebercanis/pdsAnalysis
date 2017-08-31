@@ -39,8 +39,7 @@ public :
   enum {MAXADC=4095};
   //peak finding
   enum {minLength=2,maxHalfLength=5};
-  
-
+ 
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
 
@@ -95,6 +94,11 @@ public :
    TTree* pmtTree;
    TPmtEvent* pmtEvent;
    TFile* outFile;
+
+   // get trigger type 
+   Int_t triggerInfo();
+   // trigger type counters
+   Int_t ntrig555,ntrig5xx,ntrig444,ntrig4xx,ntrig111,ntrig1xx,ntrig000,ntrig0xx;
    
    std::vector<Int_t> findMaxPeak(std::vector<Double_t> v, Double_t threshold,Double_t sthreshold); 
    std::vector<Int_t> findPeaks(std::vector<Double_t> v, Double_t threshold,Double_t sthreshold); 
@@ -138,7 +142,7 @@ public :
    TNtuple *ntPmt;
    TNtuple *ntDigi;
    TNtuple *ntHit;
-   TNtuple *ntQual;
+   TNtuple *ntTrig;
    //FFT
    Int_t nFFTSize;
    TH1D* FFTFilter(Int_t pmt); 
@@ -154,6 +158,10 @@ public :
    // histogram pointers
    TH1D* hSamples[NALLCH];  // include RF
    TH1D* hSamplesSum;
+
+   TH1D* hSamplesPDS[NPMT];  // include RF
+   TH1D* hSamplesPDSSum;
+
    TH1D* hPeaks[NPMT];
    TH1D* hFFT[NPMT];
    TH1D* hHitQ[NPMT];

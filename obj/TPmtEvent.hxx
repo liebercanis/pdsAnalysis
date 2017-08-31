@@ -18,12 +18,14 @@ using namespace std;
 
 class TPmtEvent: public TNamed {
 	public:
+  enum { TRIGUNKNOWN,TRIG555,TRIG5XX ,TRIG444,TRIG4XX,TRIG111,TRIG1XX,TRIG000,TRIG0XX};  
 		TPmtEvent();
 //		~TPmtEvent();
 
 		void clear();
 		void print(int ihit=0);
 		// data elements
+    Int_t trigType;
     Int_t    run;
     Int_t    event;
     Int_t    tpcTrig;

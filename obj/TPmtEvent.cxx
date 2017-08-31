@@ -10,6 +10,7 @@ TPmtEvent::TPmtEvent(): TNamed("TPmtEvent","TPmtEvent")
 
 void TPmtEvent::clear()
 {
+  trigType = TRIGUNKNOWN; 
   run=0;
   event=0;
   tpcTrig=0;
