@@ -16,4 +16,9 @@ void browse()
  gSystem->Load("libTreeViewer");
 }
 
+void dir() 
+{
+  gDirectory->ls("-m");
+}
+
 

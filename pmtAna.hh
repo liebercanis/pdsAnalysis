@@ -14,6 +14,7 @@
 #include <valarray>
 
 #include "TPmtEvent.hxx"
+#include "TPmtSummary.hxx"
 
 #include <TROOT.h>
 #include <TVirtualFFT.h>
@@ -94,11 +95,13 @@ public :
    TTree* pmtTree;
    TPmtEvent* pmtEvent;
    TFile* outFile;
+   TPmtSummary *pmtSummary;
+   TFile *summaryFile;
+   
 
    // get trigger type 
    Int_t triggerInfo();
    // trigger type counters
-   Int_t ntrig555,ntrig5xx,ntrig444,ntrig4xx,ntrig111,ntrig1xx,ntrig000,ntrig0xx;
    
    std::vector<Int_t> findMaxPeak(std::vector<Double_t> v, Double_t threshold,Double_t sthreshold); 
    std::vector<Int_t> findPeaks(std::vector<Double_t> v, Double_t threshold,Double_t sthreshold); 

@@ -6,9 +6,8 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
     printf(" cannot read gain constants file so abort \n");
     return;
   }
-  // zero trigger type counters
-  ntrig555=0; ntrig5xx=0; ntrig444=0; ntrig4xx=0; ntrig111=0;ntrig1xx=0; ntrig000=0; ntrig0xx=0;
-  
+ 
+
   fChain=NULL;
   TString fileName = TString("pdsData/PDSout_") + TString(tag) + TString(".root");
   printf(" looking for file %s\n",fileName.Data());
@@ -22,13 +21,19 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   tree->ls();
   Init(tree);
   if(!fChain) return;
-
-  
   // initicalize fft 
   nFFTSize = int(MAXSAMPLES);
   fFFT = TVirtualFFT::FFT(1, &nFFTSize, "R2C M K");
   fInverseFFT = TVirtualFFT::FFT(1, &nFFTSize, "C2R M K");
 
+  TString summaryFileName = TString("pdsOutput/pmtSummary_")+tag+ TString(".root");
+  summaryFile = new TFile(summaryFileName,"recreate");
+  summaryFile->cd();
+  printf(" opening summary file %s \n",summaryFileName.Data());
+  TTree *summaryTree = new TTree("summaryTree","summaryTree");
+  pmtSummary  = new TPmtSummary();
+  summaryTree->Branch("pmtSummary",&pmtSummary);
+  
   // open ouput file and make some histograms
   TString outputFileName = TString("pdsOutput/pmtAna_")+tag+ TString(".root");
   outFile = new TFile(outputFileName,"recreate");
@@ -39,10 +44,11 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   pmtTree = new TTree("pmtTree","pmtTree");
   pmtEvent  = new TPmtEvent();
   pmtTree->Branch("pmtEvent",&pmtEvent);
+
+
+
   //pmtTree->ls();
-
-
-
+  //
   //ntuples
   ntDigi = new TNtuple("ntDigi"," digi  ","ipmt:idigi:digi"); 
   ntPmt = new TNtuple("ntPmt"," pmts ","trig:ipmt:tmax:qmax:sum:tmaxUn:qmaxUn:sumUn:noise:base:nhit");
@@ -90,7 +96,6 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   hSamplesPDSSum->SetXTitle(" sample number ");
   
   
-  
   for(UInt_t ib=0; ib<NB; ++ib) {
     for(UInt_t ic=0; ic<NC; ++ic) {
       int ipmt = toPmtNumber(ib,ic);
@@ -122,7 +127,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
       
       hname.Form("QMax_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form(" max ADC c board%u channel%u pmt %u",ib,ic,ipmt);
-      hQMax[ipmt] = new TH1D(hname,htitle,50,0,50);
+      hQMax[ipmt] = new TH1D(hname,htitle,50,0,100);
       hQMax[ipmt]->SetXTitle(" q max (ADC counts) ");
 
       hname.Form("NHits_b%u_ch%u_pmt%u",ib,ic,ipmt);
@@ -136,12 +141,19 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   }
   //gDirectory->ls();
   
+  //pmtSummary->SetName(Form("summary-%s",TString(tag(0,10)).Data()));
+  //pmtSummary->tag = tag;
+  
   // loop over entries zero = all 
   UInt_t nLoop = Loop(maxLoop,firstEntry);
-
   qualitySummary(tag);
+  
   outFile->Write();
-  printf(" wrote output file %s ",outFile->GetName());
+  printf(" wrote output file %s \n",outFile->GetName());
+
+  summaryTree->Fill();
+  summaryFile->Write();
+  printf(" wrote summary file %s \n",summaryFile->GetName());
 
 
   // do some plotting
@@ -317,7 +329,9 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
               sum+=digi;
               sumUn+=digiUn;
             }
-          } // loop over digitizations 
+          } // loop over digitizations
+
+          //if(sum>400&&pmtEvent->trigType!=7) printf(" SSSSSSSSS event %lli trig %i sum %f   \n", jentry, pmtEvent->trigType, sum );
           hCounts[ipmt]->Fill(sum);
           // peak finding
           std::vector<Int_t> peakTime = findPeaks(ddigi,4.0*noise,1.0*noise);
@@ -682,22 +696,22 @@ Int_t pmtAna::triggerInfo()
   
   if(r1==0&&r2==0&r3==0) { // zero 
     type = TPmtEvent::TRIG000;
-    ++ntrig000;
+    ++pmtSummary->ntrig000;
   } else if (r1==0||r2==0||r3==0) { 
     type = TPmtEvent::TRIG0XX;
-    ++ntrig5xx; 
+    ++pmtSummary->ntrig5xx; 
   } else if (r1==5&&r2==5&&r3==5) { //five 
     type = TPmtEvent::TRIG555; 
-    ++ntrig555;
+    ++pmtSummary->ntrig555;
   } else if ( r1==5 || r2==5 || r3==5 ) {
    type = TPmtEvent::TRIG5XX; 
-    ++ntrig5xx;
+    ++pmtSummary->ntrig5xx;
   } else if (r1==4&&r2==4&&r3==4) {  //four
     type = TPmtEvent::TRIG444; 
-    ++ntrig444;
+    ++pmtSummary->ntrig444;
   } else if ( r1==4 || r2==4 || r3==4 ) {
    type = TPmtEvent::TRIG4XX; 
-    ++ntrig4xx;
+    ++pmtSummary->ntrig4xx;
   }
   return type;
  }
@@ -705,21 +719,12 @@ Int_t pmtAna::triggerInfo()
 // summarize run quality
 void pmtAna::qualitySummary(TString tag)
 {
-     
-    printf(" \n QQQQQQQQQ quality summary %s: \n",tag.Data());
-
-    printf(" PDS triggers %i \n",ntrig000);
-    Int_t nrfTrig = ntrig555+ntrig444;
-    printf(" RF  triggers %i \n",nrfTrig);
-    printf(" 555 %i  n5xx= %i n444= %i n4xx= %i n111= %i n1xx= %i n000= %i n0xx=  %i   \n",
-        ntrig555,ntrig5xx,ntrig444,ntrig4xx,ntrig111,ntrig1xx,ntrig000,ntrig1xx);
-
     Int_t pmtEntries = (Int_t) ntPmt->GetEntries();
     if(ntPmt->GetEntries()<1) return;
     //cout<<"Number of quality entries: "<<entries<< endl;
     Float_t ftrig,fpmt,tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,base,nhit;
 
-    ntPmt->SetBranchAddress("itrig",&ftrig);
+    ntPmt->SetBranchAddress("trig",&ftrig);
     ntPmt->SetBranchAddress("ipmt",&fpmt);
     ntPmt->SetBranchAddress("tmax",&tmax);
     ntPmt->SetBranchAddress("qmax",&qmax);
@@ -743,19 +748,21 @@ void pmtAna::qualitySummary(TString tag)
        yun[j]=0; zun[j]=0; yun2[j]=0; zun2[j]=0; eyun[j]=0; ezun[j]=0;
        normun[j]=0;
     }
-
-
+  
+ 
     for (Int_t k=0 ;k<pmtEntries;k++){
       ntPmt->GetEntry(k);
       int ipmt = int(fpmt);
-      if(sum<200.0&&sum>20&&qmax>10.0&&qmax<100.0) {
+      // cosmic cut
+      bool cut = tmax>440&&tmax<480&&sum<5000;
+      if(cut) { 
         y[ipmt]+=qmax;
         y2[ipmt]+=pow(qmax,2.);
         z[ipmt]+=sum;
         z2[ipmt]+=pow(sum,2.);
         norm[ipmt]+=1.0;
       }
-      if(sumUn<200.0&&sumUn>20&&qmaxUn>10.0&&qmaxUn<100.0) {
+      if(cut) { 
         yun[ipmt]+=qmaxUn;
         yun2[ipmt]+=pow(qmaxUn,2.);
         zun[ipmt]+=sumUn;
@@ -774,16 +781,24 @@ void pmtAna::qualitySummary(TString tag)
       ez[j]= sqrt( (z2[j]-pow(z[j],2.))/norm[j]);
       eyun[j]= sqrt( (yun2[j]-pow(yun[j],2.))/normun[j]);
       ezun[j]= sqrt( (zun2[j]-pow(zun[j],2.))/normun[j]);
-      
     }
+
+    // store averages in summary
+    for(Int_t j=0; j<NPMT; ++j) {
+      pmtSummary->norm[j]=norm[j];
+      pmtSummary->qmax[j]=y[j];
+      pmtSummary->eqmax[j]=ey[j];
+      pmtSummary->qsum[j]=z[j];
+      pmtSummary->eqsum[j]=ez[j];
+    }
+    
+    pmtSummary->print();
+
+
     printf(" \n uncorrected PMT averages \n");
     for(Int_t j=0; j<NPMT; ++j) 
       printf(" ipmt %i norm %i qmax %.2f +/- %.2f sum %.2f +/- %.2f \n",j,int(normun[j]),yun[j],eyun[j],zun[j],ezun[j]);
 
-
-    printf(" \n gain corrected PMT averages \n");
-    for(Int_t j=0; j<NPMT; ++j) 
-      printf(" ipmt %i norm %i qmax %.2f +/- %.2f sum %.2f +/- %.2f \n",j,int(norm[j]),y[j],ey[j],z[j],ez[j]);
 
     TGraphErrors* gr1 = new TGraphErrors(NPMT,x,y,ex,ey);
     TGraphErrors* grUn1 = new TGraphErrors(NPMT,x,yun,ex,eyun);
@@ -797,6 +812,7 @@ void pmtAna::qualitySummary(TString tag)
     gr1->SetName(Form("pmt qmax average %s",tag.Data()));
     gr1->SetTitle(Form("pmt qmax average %s",tag.Data()));
     gr1->GetXaxis()->SetTitle(" pmt number ");
+    gr1->GetYaxis()->SetRangeUser(20,50);
     gr1->Draw("ap");
     grUn1->Draw("psame");
     c1->Print(".pdf");
@@ -814,6 +830,7 @@ void pmtAna::qualitySummary(TString tag)
     grUn2->SetName(Form("uncorrected pmt peak sum average %s",tag.Data()));
     grUn2->SetTitle(Form("uncorrected pmt peak sum average %s",tag.Data()));
     gr2->GetXaxis()->SetTitle(" pmt number ");
+    gr2->GetYaxis()->SetRangeUser(500,1500);
     gr2->Draw("ap");
     grUn2->Draw("psame");
     c2->Print(".pdf");

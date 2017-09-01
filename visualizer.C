@@ -202,6 +202,8 @@ bool FillHistos(int EvNum, float offsetstepADC = 50.) {
     float offset = 0.;
     bool needS0 = false;
 
+    float sumAll=0;
+
     for (int iB = 0; iB<NBOARDS; ++iB) {
         for (int iC = 0; iC<NPMTS; ++iC) {
             
@@ -211,6 +213,7 @@ bool FillHistos(int EvNum, float offsetstepADC = 50.) {
             
             histo[iB][iC]->Reset();
             histoDraw[iB][iC]->Reset();
+            float sum=0;
             for (int iS = 0; iS<NSAMPLES; ++iS) {
                 histo[iB][iC]->Fill(iS+0.5, (1.*waveforms[iB][iC][iS]-baseline) );
                 if (iC == 7) {
@@ -218,15 +221,19 @@ bool FillHistos(int EvNum, float offsetstepADC = 50.) {
                 }
                 else {
                     histoDraw[iB][iC]->Fill(iS+0.5, (1.*waveforms[iB][iC][iS]-baseline+offset) );
+                  sum-= float(waveforms[iB][iC][iS]-baseline);
+                  sumAll-= float(waveforms[iB][iC][iS]-baseline);
                 }
-                
+
             }
+            if(iC!=7) printf(" ib %i ic %i sum %f \n",iB,iC,sum);
             
             offset += offsetstepADC;
         }
     }
     
     hmaster->SetTitle(Form("ADC Plot File %s Event %i;Sample (4 ns per sample);ADC Counts",tag.Data(),EvNum));
+    printf(" %s %f \n",hmaster->GetTitle(),sumAll);
     
     return true;
 
