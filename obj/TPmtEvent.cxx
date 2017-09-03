@@ -27,7 +27,7 @@ void TPmtEvent::clear()
 
 void TPmtEvent::print(int ipmt)
 {
-  printf(" \n  TPmtEvent ipmt %i  run %i nHits \n",ipmt,run,nhits);
+  printf(" \n  TPmtEvent ipmt %i  run %i nHits %i \n",ipmt,run,nhits);
   for(Int_t i=0; i<nhits ; ++i) hit[i].print();
   printf(" end of TPmtEvent \n");
 }
