@@ -36,7 +36,7 @@ DICTS := $(filter-out $(SKIP_DICT), $(patsubst %.hxx,%_Dict.cxx,$(wildcard *.hxx
 #------------------------------------------------------------------------------
 
 
-all: lib 
+all: lib pdsSum
 
 lib: $(DICTS) $(OBJS)
 	@echo "lib step $(LD) $(SOFLAGS) $(LIBS) $(OBJS) $(DICTS) -o $(LIBRARY) "
@@ -50,7 +50,15 @@ CINTFLAGS   := -I$(ROOTSYS)/include -I/.
 	@echo "rootcint -f $@ -c $(CINTCFLAGS) $^"
 	@rootcint -f $@ -c $(CINTFLAGS) $^
 
-	
+
+
+pdsSum: $(OBJ)
+	@echo " pdsSum compile and link  " 
+	@echo $(CXX) pdsSum.cc -o $@ $^ $(CXXFLAGS) -L./ -l$(LIBNAME)  $(ROOTGLIBS)
+	$(CXX) pdsSum.cc -o $@ $^ $(CXXFLAGS) -L./ -l$(LIBNAME)  $(ROOTGLIBS)
+
+
+
 %.o:  %.cxx %.cxx
 	@echo "compiling $@ ... $(CXX) $(CXXFLAGS) -c $<"
 	$(CXX) $(CXXFLAGS) -c $<

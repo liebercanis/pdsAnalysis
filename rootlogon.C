@@ -12,7 +12,7 @@
 
 void browse() 
 {
- browser = new TBrowser();
+ TBrowser *browser = new TBrowser();
  gSystem->Load("libTreeViewer");
 }
 

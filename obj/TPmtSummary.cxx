@@ -16,7 +16,7 @@ void TPmtSummary::clear()
   for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
     qsum[ipmt]=0; eqsum[ipmt]=0;
     qmax[ipmt]=0; eqmax[ipmt]=0;
-    norm[ipmt]=0;
+    norm[ipmt]=0; noise[ipmt]=0;
   }
   
  }
