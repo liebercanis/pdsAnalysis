@@ -51,8 +51,7 @@ void TPdsSummary::run()
 
   printf(" now loop over files in %s is %lu \n",dirName.Data(),fileList.size());
   // loop over files
-  //for( unsigned ifile =0; ifile < fileList.size() ; ++ifile ) {
-  for( unsigned ifile =0; ifile < 5 ; ++ifile ) {
+  for( unsigned ifile =0; ifile < fileList.size() ; ++ifile ) {
     printf(" %i %s \n",ifile,fileList[ifile].c_str());
     TString fullName = fullDirName+TString("/")+TString(fileList[ifile].c_str());
     readFile(fullName);
