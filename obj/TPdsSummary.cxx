@@ -290,8 +290,12 @@ void TPdsSummary::readFile(TString fileName)
 {
   cout << " reading file " << fileName << endl;
   TFile*  fin = new TFile(fileName, "READ");
+  if(fin->IsZombie()) {
+    printf(" cannot read file %s\n",fileName.Data());
+    return;
+  }
   pmt_tree = (TTree *)fin->Get("pmt_tree");
-  if(pmt_tree.Is_Zombie()) {
+  if(!pmt_tree) {
     printf(" cannot find pmt_tree in file %s\n",fileName.Data());
     fin->Close();
     return;
