@@ -47,10 +47,12 @@ void TPdsSummary::run()
   summaryTree = new TTree("summaryTree","summaryTree");
   pmtSummary  = new TPmtSummary();
   summaryTree->Branch("pmtSummary",&pmtSummary);
+  summaryFile->ls();
 
   printf(" now loop over files in %s is %lu \n",dirName.Data(),fileList.size());
   // loop over files
-  for( unsigned ifile =0; ifile < fileList.size() ; ++ifile ) {
+  //for( unsigned ifile =0; ifile < fileList.size() ; ++ifile ) {
+  for( unsigned ifile =0; ifile < 5 ; ++ifile ) {
     printf(" %i %s \n",ifile,fileList[ifile].c_str());
     TString fullName = fullDirName+TString("/")+TString(fileList[ifile].c_str());
     readFile(fullName);
@@ -289,7 +291,7 @@ void TPdsSummary::readFile(TString fileName)
   cout << " reading file " << fileName << endl;
   TFile*  fin = new TFile(fileName, "READ");
   pmt_tree = (TTree *)fin->Get("pmt_tree");
-  if(!pmt_tree) {
+  if(pmt_tree.Is_Zombie()) {
     printf(" cannot find pmt_tree in file %s\n",fileName.Data());
     fin->Close();
     return;
