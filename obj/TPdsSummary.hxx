@@ -38,8 +38,9 @@ class TPdsSummary: public TNamed {
 		~TPdsSummary();
     std::vector<Int_t> findRFTimes(int ipmt, double& step); 
     Int_t triggerInfo();
-    void ADCFilter(int iB, int iC); 
-    void Loop(); 
+    void ADCFilter(int iB, int iC);
+    void run();
+    void loop(); 
     void readFile(TString fileName); 
 
     // valid pmt are 0 to 20, RF channels are 21,22,23
@@ -65,8 +66,17 @@ class TPdsSummary: public TNamed {
       return ipmt;
     }
 
+    void printFiles() {
+      printf( " have %lu files in list \n",fileList.size());
+      for( unsigned ifile =0; ifile < fileList.size() ; ++ifile ) printf(" %i %s \n",ifile,fileList[ifile].c_str());
+    }
+   
+    TString dirName;
+    TString fullDirName;
+    std::vector<std::string> fileList;
     TTree *pmt_tree;
     UShort_t digitizer_waveforms[NB][NC][NS];
+    TFile *summaryFile;
     TTree *summaryTree;
     TPmtSummary* pmtSummary;
 

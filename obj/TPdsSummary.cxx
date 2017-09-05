@@ -5,13 +5,18 @@
 ClassImp(TPdsSummary)
 
 
-TPdsSummary::TPdsSummary(TString dirName): TNamed("TPdsSummary","TPdsSummary")
+TPdsSummary::TPdsSummary(TString theDirName): TNamed("TPdsSummary","TPdsSummary")
 {
+  dirName = theDirName;
   // get list of files
-  std::vector<std::string> fileList;
-  TString fullDirName= TString("2017/")+dirName;
+  fileList.clear();
+  fullDirName= TString("2017/")+dirName;
   void *dirp = gSystem->OpenDirectory(fullDirName);
-  if (!dirp) return;
+  cout << " TPdsSummary full directory name is " << fullDirName << endl;
+  if (!dirp) {
+    cout << " returning with NULL directory pointer ! \n"; 
+    return;
+  }
   char *direntry;
   Long_t id, size,flags,modtime;
   //loop on all entries of this directory
@@ -24,31 +29,35 @@ TPdsSummary::TPdsSummary(TString dirName): TNamed("TPdsSummary","TPdsSummary")
     fileList.push_back(fname);
   }
 
+  printf(" total of files in %s is %lu \n",dirName.Data(),fileList.size());
+}
+
+TPdsSummary::~TPdsSummary(){}
+
+
+void TPdsSummary::run() 
+{ 
+  
   // structure for holding pmt info 
   //open output file
   TString summaryFileName = TString("pdsOutput/pdsSummary_")+dirName+ TString(".root");
-  TFile* summaryFile = new TFile(summaryFileName,"recreate");
+  summaryFile = new TFile(summaryFileName,"recreate");
   summaryFile->cd();
   printf(" opening summary file %s \n",summaryFileName.Data());
   summaryTree = new TTree("summaryTree","summaryTree");
   pmtSummary  = new TPmtSummary();
   summaryTree->Branch("pmtSummary",&pmtSummary);
 
-
-  printf(" total of files in %s is %lu \n list of tags: \n",dirName.Data(),fileList.size());
-
+  printf(" now loop over files in %s is %lu \n",dirName.Data(),fileList.size());
   // loop over files
   for( unsigned ifile =0; ifile < fileList.size() ; ++ifile ) {
     printf(" %i %s \n",ifile,fileList[ifile].c_str());
     TString fullName = fullDirName+TString("/")+TString(fileList[ifile].c_str());
     readFile(fullName);
   }
-
   summaryFile->Write();
-
 }
 
-TPdsSummary::~TPdsSummary(){}
 
 
 std::vector<Int_t> TPdsSummary::findRFTimes(int ipmt, double& step) 
@@ -149,7 +158,7 @@ void TPdsSummary::ADCFilter(int iB, int iC)
 }
 
 
-void TPdsSummary::Loop() 
+void TPdsSummary::loop() 
 {
  
   Long64_t entries = pmt_tree->GetEntries(); 
@@ -288,7 +297,7 @@ void TPdsSummary::readFile(TString fileName)
 
   pmt_tree->SetBranchAddress("digitizer_waveforms", &digitizer_waveforms);
   
-  Loop();
+  loop();
 
   fin->Close();
   

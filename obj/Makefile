@@ -86,5 +86,5 @@ show:
 	@echo CXX=$(CXX)
 
 clean:
-	@echo "removing $(OBJS) *_Dict.* $(LIBRARY) *.pcm"
-	@rm -f $(OBJS) *_Dict.* $(LIBRARY) *.pcm 
+	@echo "removing $(OBJS) *_Dict.* $(LIBRARY) *.pcm pdsSum"
+	@rm -f $(OBJS) *_Dict.* $(LIBRARY) *.pcm  pdsSum
