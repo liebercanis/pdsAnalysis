@@ -58,6 +58,8 @@ void TPdsSummary::run()
     readFile(fullName);
   }
   summaryFile->Write();
+  cout<< "  summary tree has   " << summaryTree->GetEntries() << " entries " << endl;
+  
 }
 
 
