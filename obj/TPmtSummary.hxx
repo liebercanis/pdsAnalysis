@@ -18,10 +18,10 @@ class TPmtSummary: public TNamed {
 		~TPmtSummary();
 		void clear();
 		void print();
-    Int_t getMonth() { return stoi(tag.substr(0,2)) ;}
-    Int_t getDay() { return stoi(tag.substr(3,2)) ;}
-    Int_t getHour() { return stoi(tag.substr(6,4)) ;}
-    Int_t getSegment() { return stoi(tag.substr(11,tag.find(".") -1  - 11)) ; }
+    Int_t getMonth() { return atoi(tag.substr(0,2).c_str()) ;}
+    Int_t getDay() { return atoi(tag.substr(3,2).c_str()) ;}
+    Int_t getHour() { return atoi(tag.substr(6,4).c_str()) ;}
+    Int_t getSegment() { return atoi(tag.substr(11,tag.find(".") -1  - 11).c_str());}
 		// data elements
     std::string tag;
     Int_t ntrig555;
