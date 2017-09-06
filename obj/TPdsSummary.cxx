@@ -9,7 +9,6 @@ TPdsSummary::TPdsSummary(TString theDirName): TNamed("TPdsSummary","TPdsSummary"
 {
   dirName = theDirName;
   // get list of files
-  fileList.clear();
   fullDirName= TString("2017/")+dirName;
   void *dirp = gSystem->OpenDirectory(fullDirName);
   cout << " TPdsSummary full directory name is " << fullDirName << endl;
@@ -20,16 +19,31 @@ TPdsSummary::TPdsSummary(TString theDirName): TNamed("TPdsSummary","TPdsSummary"
   char *direntry;
   Long_t id, size,flags,modtime;
   //loop on all entries of this directory
+  fileList.clear();
   while ((direntry=(char*)gSystem->GetDirEntry(dirp))) { 
+  printf(" total of files in %s is %lu  \n",dirName.Data(),fileList.size());
     //cout << direntry << endl;
     string fname = string(direntry);
     if ( strstr(fname.c_str(), "PDSout" )==NULL ) continue;
     if ( strstr(fname.c_str(), ".root" )== NULL ) continue;
-    //string tag= fname.substr( fname.find("_")+1, fname.find(".") -1  - fname.find("_"));
+    getTag(fname);
+    Int_t month = getMonth();
+    Int_t day =  getDay();
+    Int_t hour =  getHour();
+    Int_t segment =  getSegment();
+    if( month==7 && day < 20) {
+      printf(" skipping early run formatted fill, tag is %s month %i day %i hour %i segment %i \n",tag.c_str(),month,day,hour,segment);
+      continue;
+    } 
     fileList.push_back(fname);
   }
-
-  printf(" total of files in %s is %lu \n",dirName.Data(),fileList.size());
+  // why do I have to do this??
+  isEmpty = fileList.empty();
+  if(isEmpty) { 
+    printf(" \t WARNINNG:: file list is empty \n");
+    fileList.clear();
+  }
+  printf(" total of files in %s is %lu  \n",dirName.Data(),fileList.size());
 }
 
 TPdsSummary::~TPdsSummary(){}
@@ -37,7 +51,10 @@ TPdsSummary::~TPdsSummary(){}
 
 void TPdsSummary::run() 
 { 
-  
+  if(isEmpty) {
+    printf(" run returning because fileList is empty\n");
+    return;
+  }
   // structure for holding pmt info 
   //open output file
   TString summaryFileName = TString("pdsOutput/pdsSummary_")+dirName+ TString(".root");
@@ -167,7 +184,8 @@ void TPdsSummary::loop()
   Long64_t entries = pmt_tree->GetEntries(); 
   cout << " pmt_tree has entries = " << entries << endl;
   pmtSummary->clear();
-
+  // save the file tag
+  pmtSummary->tag = tag;
   std::vector<Double_t> sdigi;  // source
   std::vector<Double_t> ddigi;  // baseline subtracted
 

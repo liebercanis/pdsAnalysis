@@ -41,7 +41,12 @@ class TPdsSummary: public TNamed {
     void ADCFilter(int iB, int iC);
     void run();
     void loop(); 
-    void readFile(TString fileName); 
+    void readFile(TString fileName);
+    void getTag(std::string fname) { tag = fname.substr( fname.find("_")+1, fname.find(".") -1  - fname.find("_")); return;}
+    Int_t getMonth() { return stoi(tag.substr(0,2)) ;}
+    Int_t getDay() { return stoi(tag.substr(3,2)) ;}
+    Int_t getHour() { return stoi(tag.substr(6,4)) ;}
+    Int_t getSegment() { return stoi(tag.substr(11,tag.find(".") -1  - 11));}
 
     // valid pmt are 0 to 20, RF channels are 21,22,23
     void fromPmtNumber(int ipmt, int& ib, int&ic)
@@ -67,10 +72,16 @@ class TPdsSummary: public TNamed {
     }
 
     void printFiles() {
+      if(isEmpty) { 
+        printf(" file list is empty \n");
+        return;
+      }
       printf( " have %lu files in list \n",fileList.size());
       for( unsigned ifile =0; ifile < fileList.size() ; ++ifile ) printf(" %i %s \n",ifile,fileList[ifile].c_str());
     }
-   
+ 
+    bool isEmpty; 
+    std::string tag;
     TString dirName;
     TString fullDirName;
     std::vector<std::string> fileList;

@@ -11,7 +11,7 @@ TPmtSummary::~TPmtSummary(){}
 
 void TPmtSummary::clear()
 {
-  tag.Clear();
+  tag.clear(); // std string
   ntrig555=0; ntrig5xx=0; ntrig444=0; ntrig4xx=0; ntrig111=0;ntrig1xx=0; ntrig000=0; ntrig0xx=0;
   for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
     qsum[ipmt]=0; eqsum[ipmt]=0;
@@ -23,7 +23,7 @@ void TPmtSummary::clear()
 
 void TPmtSummary::print()
 {
-   printf(" \n SSSSSSSSSSS summary %s: \n",tag.Data());
+   printf(" \n SSSSSSSSSSS summary %s: \n",tag.c_str());
 
     printf(" PDS triggers %i \n",ntrig000);
     Int_t nrfTrig = ntrig555+ntrig444;
