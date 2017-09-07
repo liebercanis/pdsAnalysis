@@ -39,7 +39,7 @@ class TPdsSummary: public TNamed {
     std::vector<Int_t> findRFTimes(int ipmt, double& step); 
     Int_t triggerInfo();
     void ADCFilter(int iB, int iC);
-    void run();
+    void run(Int_t maxFiles);
     void loop(); 
     void readFile(TString fileName);
     void getTag(std::string fname) { tag = fname.substr( fname.find("_")+1, fname.find(".") -1  - fname.find("_")); return;}
@@ -90,6 +90,8 @@ class TPdsSummary: public TNamed {
     TFile *summaryFile;
     TTree *summaryTree;
     TPmtSummary* pmtSummary;
+    Int_t badFiles;
+    Int_t goodFiles;
 
 		ClassDef(TPdsSummary,1)
 };

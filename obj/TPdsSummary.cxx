@@ -8,6 +8,8 @@ ClassImp(TPdsSummary)
 TPdsSummary::TPdsSummary(TString theDirName): TNamed("TPdsSummary","TPdsSummary")
 {
   dirName = theDirName;
+  badFiles=0;
+  goodFiles=0;
   // get list of files
   fullDirName= TString("2017/")+dirName;
   void *dirp = gSystem->OpenDirectory(fullDirName);
@@ -49,7 +51,7 @@ TPdsSummary::TPdsSummary(TString theDirName): TNamed("TPdsSummary","TPdsSummary"
 TPdsSummary::~TPdsSummary(){}
 
 
-void TPdsSummary::run() 
+void TPdsSummary::run(Int_t maxFiles) 
 { 
   if(isEmpty) {
     printf(" run returning because fileList is empty\n");
@@ -57,7 +59,9 @@ void TPdsSummary::run()
   }
   // structure for holding pmt info 
   //open output file
-  TString summaryFileName = TString("pdsOutput/pdsSummary_")+dirName+ TString(".root");
+  TString fileTag;
+  fileTag.Form("files-%i_",maxFiles);
+  TString summaryFileName = TString("pdsOutput/pdsSummary_") + fileTag +dirName + TString(".root");
   summaryFile = new TFile(summaryFileName,"recreate");
   summaryFile->cd();
   printf(" opening summary file %s \n",summaryFileName.Data());
@@ -66,17 +70,19 @@ void TPdsSummary::run()
   summaryTree->Branch("pmtSummary",&pmtSummary);
   summaryFile->ls();
 
-  printf(" now loop over files in %s is %lu \n",dirName.Data(),fileList.size());
+  printf(" now loop over files in %s is %lu reading %i \n",dirName.Data(),fileList.size(),maxFiles);
   // loop over files
-  for( unsigned ifile =0; ifile < 100 ; ++ifile ) {
-  //for( unsigned ifile =0; ifile < fileList.size() ; ++ifile ) {
+  unsigned fmax = fileList.size();
+  if(maxFiles>0) fmax=UInt_t(maxFiles);
+  for( unsigned ifile =0; ifile < fmax ; ++ifile ) {
     printf(" %i %s \n",ifile,fileList[ifile].c_str());
     TString fullName = fullDirName+TString("/")+TString(fileList[ifile].c_str());
     readFile(fullName);
-    summaryFile->Write();
+    printf(" have written %i bytes \n",summaryTree->FlushBaskets());
   }
   summaryFile->Write();
   cout<< "  summary tree has   " << summaryTree->GetEntries() << " entries " << endl;
+  printf(" number of good files %i \n number of bad files %i \n",goodFiles,badFiles);
   summaryFile->Close();
 }
 
@@ -313,17 +319,20 @@ void TPdsSummary::readFile(TString fileName)
   TFile*  fin = new TFile(fileName, "READ");
   if(fin->IsZombie()) {
     printf(" cannot read file %s\n",fileName.Data());
+    ++badFiles;
     return;
   }
   pmt_tree = (TTree *)fin->Get("pmt_tree");
   if(!pmt_tree) {
     printf(" cannot find pmt_tree in file %s\n",fileName.Data());
     fin->Close();
+    ++badFiles;
     return;
   }
 
   pmt_tree->SetBranchAddress("digitizer_waveforms", &digitizer_waveforms);
-  
+ 
+  ++goodFiles;
   loop();
 
   fin->Close();
