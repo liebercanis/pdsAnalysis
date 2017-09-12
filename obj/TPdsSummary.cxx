@@ -190,7 +190,7 @@ void TPdsSummary::loop()
 {
  
   Long64_t entries = pmt_tree->GetEntries(); 
-  cout << " pmt_tree has entries = " << entries << endl;
+  cout "Looping over tag " << tag << " pmt_tree has entries = " << entries << endl;
   pmtSummary->clear();
   // save the file tag
   pmtSummary->tag = tag;
@@ -331,7 +331,7 @@ void TPdsSummary::readFile(TString fileName)
   }
 
   pmt_tree->SetBranchAddress("digitizer_waveforms", &digitizer_waveforms);
- 
+  getTag(fileName); 
   ++goodFiles;
   loop();
 
