@@ -41,7 +41,7 @@ class TPdsSummary: public TNamed {
     void ADCFilter(int iB, int iC);
     void run(Int_t maxFiles);
     void loop(); 
-    void readFile(TString fileName);
+    void readFile(UInt_t ifile);
     void getTag(std::string fname) { tag = fname.substr( fname.find("_")+1, fname.find(".") -1  - fname.find("_")); return;}
     Int_t getMonth() { return atoi(tag.substr(0,2).c_str()) ;}
     Int_t getDay() { return atoi(tag.substr(3,2).c_str()) ;}

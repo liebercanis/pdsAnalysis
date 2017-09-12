@@ -76,8 +76,7 @@ void TPdsSummary::run(Int_t maxFiles)
   if(maxFiles>0) fmax=UInt_t(maxFiles);
   for( unsigned ifile =0; ifile < fmax ; ++ifile ) {
     printf(" %i %s \n",ifile,fileList[ifile].c_str());
-    TString fullName = fullDirName+TString("/")+TString(fileList[ifile].c_str());
-    readFile(fullName);
+    readFile(ifile);
     printf(" have written %i bytes \n",summaryTree->FlushBaskets());
   }
   summaryFile->Write();
@@ -190,7 +189,7 @@ void TPdsSummary::loop()
 {
  
   Long64_t entries = pmt_tree->GetEntries(); 
-  cout "Looping over tag " << tag << " pmt_tree has entries = " << entries << endl;
+  cout << "Looping over tag " << tag << " pmt_tree has entries = " << entries << endl;
   pmtSummary->clear();
   // save the file tag
   pmtSummary->tag = tag;
@@ -313,25 +312,26 @@ void TPdsSummary::loop()
   summaryTree->Fill();
 }
 
-void TPdsSummary::readFile(TString fileName) 
+void TPdsSummary::readFile(UInt_t ifile) 
 {
-  cout << " reading file " << fileName << endl;
-  TFile*  fin = new TFile(fileName, "READ");
+  TString fullName = fullDirName+TString("/")+TString(fileList[ifile].c_str());
+  cout << " reading file " << fullName << endl;
+  TFile*  fin = new TFile(fullName, "READ");
   if(fin->IsZombie()) {
-    printf(" cannot read file %s\n",fileName.Data());
+    printf(" cannot read file %s\n",fullName.Data());
     ++badFiles;
     return;
   }
   pmt_tree = (TTree *)fin->Get("pmt_tree");
   if(!pmt_tree) {
-    printf(" cannot find pmt_tree in file %s\n",fileName.Data());
+    printf(" cannot find pmt_tree in file %s\n",fullName.Data());
     fin->Close();
     ++badFiles;
     return;
   }
 
   pmt_tree->SetBranchAddress("digitizer_waveforms", &digitizer_waveforms);
-  getTag(fileName); 
+  getTag(fileList[ifile]); 
   ++goodFiles;
   loop();
 
