@@ -6,7 +6,7 @@ int main(int argc, char **argv) {
   TString dirName;
   Int_t fmax=0;
   if(argc>1)  fmax = atoi(argv[1]);
-  if(argc>2) dirName = TString(argv[1]);
+  if(argc>2) dirName = TString(argv[2]);
   else dirName = TString("PDS_beamtime_files");
   cout << " \n now creating TPdsSummary with directory " << dirName << " will read " << fmax << " files " << endl;
   TPdsSummary *psum = new TPdsSummary(dirName);
