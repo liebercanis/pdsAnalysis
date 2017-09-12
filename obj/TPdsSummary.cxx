@@ -60,8 +60,8 @@ void TPdsSummary::run(Int_t maxFiles)
   // structure for holding pmt info 
   //open output file
   TString fileTag;
-  fileTag.Form("_max%i",maxFiles);
-  TString summaryFileName = TString("pdsOutput/pdsSummary_") + dirName + fileTag+ TString(".root");
+  fileTag.Form("files-%i_",maxFiles);
+  TString summaryFileName = TString("pdsOutput/pdsSummary_") + fileTag +dirName + TString(".root");
   summaryFile = new TFile(summaryFileName,"recreate");
   summaryFile->cd();
   printf(" opening summary file %s \n",summaryFileName.Data());
