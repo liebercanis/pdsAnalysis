@@ -38,6 +38,8 @@ class TPmtSummary: public TNamed {
     Double_t eqmax[NPMT];
     Double_t noise[NPMT];
     Int_t norm[NPMT];
+    Double_t gain[NPMT];
+    Double_t gain_e[NPMT];
 		ClassDef(TPmtSummary,1)
 };
 #endif

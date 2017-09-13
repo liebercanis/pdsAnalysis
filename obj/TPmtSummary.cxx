@@ -32,6 +32,6 @@ void TPmtSummary::print()
         ntrig555,ntrig5xx,ntrig444,ntrig4xx,ntrig111,ntrig1xx,ntrig000,ntrig1xx);
     printf(" \n PMT averages \n");
     for(Int_t j=0; j<NPMT; ++j) 
-      printf(" ipmt %i norm %i qmax %.2f +/- %.2f sum %.2f +/- %.2f \n",j,int(norm[j]),qmax[j],eqmax[j],qsum[j],eqsum[j]);
+      printf(" ipmt %i norm %i qmax %.2f +/- %.2f sum %.2f +/- %.2f gain %.2f +/- %.2f \n",j,int(norm[j]),qmax[j],eqmax[j],qsum[j],eqsum[j],gain[j],gain_e[j]);
 }
 
