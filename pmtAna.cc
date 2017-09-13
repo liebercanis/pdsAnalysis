@@ -1,4 +1,7 @@
 #include "pmtAna.hh"
+#include <TF1.h>
+#include <TPaveStats.h>
+#include <TText.h>
 
 pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
 {
@@ -52,7 +55,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   //ntuples
   ntDigi = new TNtuple("ntDigi"," digi  ","ipmt:idigi:digi"); 
   ntPmt = new TNtuple("ntPmt"," pmts ","trig:ipmt:tmax:qmax:sum:tmaxUn:qmaxUn:sumUn:noise:base:nhit");
-  ntHit = new TNtuple("ntHit", " hits ","ipmt:sum:time:rftime:length:qpeak:qhit:fwhm:ratio");
+  ntHit = new TNtuple("ntHit", " hits ","ipmt:sum:time:rftime:length:qpeak:qUnpeak:qhit:qUnhit:fwhm:ratio");
 
   // histos 
   hOcc =  new TH1D("occupancy","occupancy by pmt",NPMT,0,NPMT);
@@ -135,8 +138,12 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
       hNHits[ipmt] = new TH1D(hname,htitle,20,0,20);
       hNHits[ipmt]->SetXTitle(" number of hits per event ");
       
-
-
+      hname.Form("RawQ_b%u_ch%u_pmt%u",ib,ic,ipmt);
+      //htitle.Form(" Raw Charge board%u channel%u pmt%u",ib,ic,ipmt);
+      htitle.Form("");
+      hQUnPeak[ipmt] = new TH1D(hname,htitle,60,0,60);
+      hQUnPeak[ipmt]->SetXTitle(Form(" Raw Charge [b%u c%u pmt%u] (ADC)",ib,ic,ipmt));
+      hQUnPeak[ipmt]->SetYTitle(" Entries / [ADC]");
     }
   }
   //gDirectory->ls();
@@ -320,6 +327,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
             }
             
             ddigi.push_back(digi);
+	    ddigiUn.push_back(digiUn);
             if(jentry%100==0)ntDigi->Fill(double(ipmt),double(is),digi);
             if(pmtEvent->trigType == TPmtEvent::TRIG000) hSamplesPDS[ipmt]->SetBinContent(int(is+1),hSamplesPDS[ipmt]->GetBinContent(int(is+1))+digi);
             else hSamples[ipmt]->SetBinContent(int(is+1),hSamples[ipmt]->GetBinContent(int(is+1))+digi);
@@ -336,7 +344,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           // peak finding
           std::vector<Int_t> peakTime = findPeaks(ddigi,4.0*noise,1.0*noise);
           //std::vector<Int_t> peakTime = findMaxPeak(ddigi,8.0*noise,3.0*noise);
-          Int_t nhits = findHits(ipmt,sum,peakTime,ddigi);
+          Int_t nhits = findHits(ipmt,sum,peakTime,ddigi,ddigiUn,pmtEvent->trigType);
           hOcc->Fill(ipmt+1,nhits);
           hNHits[ipmt]->Fill(nhits);
           //printf(" event %i nhits %i \n", pmtEvent->event, pmtEvent->nhits );
@@ -563,7 +571,7 @@ std::vector<Int_t> pmtAna::findPeaks(std::vector<Double_t> v, Double_t threshold
   return peakTime;
 }
 
-Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, std::vector<Double_t> ddigi) 
+Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, std::vector<Double_t> ddigi, std::vector<Double_t> ddigiUn, Int_t type) 
 {
   //printf(" findHits called with  peakTime size %i  \n",peakTime.size());
 
@@ -599,14 +607,18 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     Double_t qhit=0;
     UInt_t peakt=0;
     Double_t qpeak=0;
+    Double_t qUnhit=0;
+    Double_t qUnpeak=0;
     for(UInt_t ih=0; ih<hitTime.size(); ++ih) {
       //printf(" \t ih = %i time  %i sample %f  ",ih,hitTime[ih],ddigi[hitTime[ih]]);
       phit.qsample.push_back(ddigi[hitTime[ih]]);	
       if(ddigi[hitTime[ih]]>qpeak) {
         peakt=hitTime[ih];
         qpeak = ddigi[hitTime[ih]];
+	qUnpeak = ddigiUn[hitTime[ih]];
       }
       qhit+=ddigi[hitTime[ih]];
+      qUnhit+=ddigiUn[hitTime[ih]];
     }
     // fwhm
     phit.fwhm=0; 
@@ -623,7 +635,9 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     phit.tstart=hitTime[hitTime.size()-1];
     phit.tstop=hitTime[0];
     phit.qhit=qhit;
+    phit.qhit=qUnhit;
     phit.qpeak=qpeak;
+    phit.qUnpeak=qUnpeak;
     phit.ratio=phit.qpeak/phit.qhit;
     phit.peakTime=peakt;
     phit.offset=0;
@@ -633,8 +647,8 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     // time past latest RF pulse
     Int_t rft = -99;
     //if(rfTime22.size()>0) rft=peakt%rfTime22[0];
-
-    ntHit->Fill(ipmt,sum,peakt,rft,length,qpeak,qhit,phit.fwhm,phit.ratio);
+    if(type==TPmtEvent::TRIG000) hQUnPeak[ipmt]->Fill(qUnpeak);
+    ntHit->Fill(ipmt,sum,peakt,rft,length,qpeak,qUnpeak,qhit,qUnhit,phit.fwhm,phit.ratio);
     hHitQ[ipmt]->Fill(qhit);
     //for(UInt_t ih=0; ih<times.size(); ++ih) printf(" \t\t %i t= %i \n",ih,times[ih]);
     //phit.print();
@@ -792,14 +806,86 @@ void pmtAna::qualitySummary(TString tag)
       pmtSummary->eqsum[j]=ez[j];
     }
     
+    gROOT->SetStyle("C43");
+    gStyle->SetOptLogy(1);
+    gStyle->SetOptStat(0000);
+    
+    int binmax;
+    double histmax;
+
+    TCanvas *myc1 = new TCanvas(Form("pmtRawQ-%s_1",tag.Data()),Form("pmtRawQ-%s_1",tag.Data()),0,0,1860,900);
+    myc1->UseCurrentStyle();
+    myc1->Divide(4,3);
+
+    TCanvas *myc2 = new TCanvas(Form("pmtRawQ-%s_2",tag.Data()),Form("pmtRawQ-%s_2",tag.Data()),0,0,1860,900);
+    myc2->UseCurrentStyle();
+    myc2->Divide(3,3);
+
+    //double gain[21],width[21];
+    for (int i=0;i<21;i++)
+    {
+      //cout<<"111"<<endl;
+      binmax = hQUnPeak[i]->GetMaximumBin();
+      histmax = hQUnPeak[i]->GetBinContent(binmax);
+      //cout<<"222"<<endl;
+      TF1* f2 = new TF1("f2","[2]*exp(-(x-[0])*(x-[0])/(2*[1]*[1]))+[5]*exp(-(x-[3])*(x-[3])/(2*[4]*[4]))",0,35);
+      double par[6]={binmax,binmax/4.,histmax,15,15/2.,histmax/500.};
+      f2->SetParLimits(1,0.50,1);
+      f2->SetParLimits(3,10,25);
+      f2->SetParLimits(4,5,10);
+      f2->SetParameters(par);
+      f2->SetLineColor(2);
+      //cout<<"333"<<endl;
+      if(i<12)myc1->cd(i+1);
+      else    myc2->cd(i-11);
+      hQUnPeak[i]->Draw();
+      hQUnPeak[i]->Fit("f2","R");
+      //cout<<"444"<<endl;
+      TF1* f1 = new TF1("f1","[2]*exp(-(x-[0])*(x-[0])/(2*[1]*[1]))+[5]*exp(-(x-[3])*(x-[3])/(2*[4]*[4]))",0,f2->GetParameter(3)+2*f2->GetParameter(4));
+      double par1[6]={f2->GetParameter(0),f2->GetParameter(1),f2->GetParameter(2),f2->GetParameter(3),f2->GetParameter(4),f2->GetParameter(5)};
+      f1->SetParLimits(4,5,10);
+      f1->SetParameters(par1);
+      f1->SetLineColor(2);
+      hQUnPeak[i]->Fit("f1","R");
+      hQUnPeak[i]->SetAxisRange(0,60);
+      //gain[i]=f1->GetParameter(3);
+      //width[i]=f1->GetParameter(4);
+      pmtSummary->gain[i]=f1->GetParameter(3);
+      pmtSummary->gain_e[i]=f1->GetParError(3);
+      //cout<<"555"<<endl;
+      TPaveStats *ptstats = new TPaveStats(0.65,0.5, 0.95,0.95,"brNDC");
+      ptstats->SetName("stats");
+      ptstats->SetBorderSize(1);
+      ptstats->SetFillColor(0);
+      ptstats->SetTextAlign(12);
+	TText *text;// = ptstats->AddText(Form(""));
+	text = ptstats->AddText(Form("Noise  = %0.3f",f1->GetParameter(0)));
+	text = ptstats->AddText(Form("Noise_{#sigma}  = %0.3f",f1->GetParameter(1)));
+	text = ptstats->AddText(Form("A_{noise}  = %0.0f",f1->GetParameter(2)));
+	text = ptstats->AddText(Form("Gain  = %0.3f",f1->GetParameter(3)));
+	text = ptstats->AddText(Form("#sigma  = %0.3f",f1->GetParameter(4)));
+	text = ptstats->AddText(Form("A_{SPE}  = %0.0f",f1->GetParameter(5)));
+      //cout<<"666"<<endl;
+      ptstats->SetOptStat(0);
+      ptstats->SetOptFit(9);
+      ptstats->Draw();
+      //cout<<"777"<<endl;
+      delete f2;
+      delete f1;
+      //delete ptstats;
+      //delete text;
+      //cout<<"888"<<endl;
+    }
+    
     pmtSummary->print();
-
-
+    myc1->Print(".pdf");
+    myc2->Print(".pdf");
     printf(" \n uncorrected PMT averages \n");
     for(Int_t j=0; j<NPMT; ++j) 
-      printf(" ipmt %i norm %i qmax %.2f +/- %.2f sum %.2f +/- %.2f \n",j,int(normun[j]),yun[j],eyun[j],zun[j],ezun[j]);
+      printf(" ipmt %i norm %i qmax %.2f +/- %.2f sum %.2f +/- %.2f gain %.2f +/- %.2f \n",j,int(normun[j]),yun[j],eyun[j],zun[j],ezun[j],pmtSummary->gain[j],pmtSummary->gain_e[j]);
 
-
+     
+    
     TGraphErrors* gr1 = new TGraphErrors(NPMT,x,y,ex,ey);
     TGraphErrors* grUn1 = new TGraphErrors(NPMT,x,yun,ex,eyun);
     TCanvas *c1 = new TCanvas(Form("pmtQMaxAverages-%s",tag.Data()),Form("pmt qmax average %s",tag.Data()));
@@ -836,7 +922,6 @@ void pmtAna::qualitySummary(TString tag)
     c2->Print(".pdf");
     outFile->Append(gr2);
     outFile->Append(grUn2);
-    
 }
 
 
