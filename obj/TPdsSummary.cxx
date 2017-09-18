@@ -73,7 +73,7 @@ void TPdsSummary::run(Int_t fFirst, Int_t maxFiles)
   // loop over files
   unsigned ffirst =fFirst;
   unsigned fmax = ffirst+fileList.size();
-  if(maxFiles>0) fmax=UInt_t(maxFiles);
+  if(maxFiles>0) fmax=ffirst+UInt_t(maxFiles);
   printf(" now loop over files in %s is %lu reading from %u to %u \n",dirName.Data(),fileList.size(),ffirst,fmax);
   for( unsigned ifile =ffirst ; ifile < fmax ; ++ifile ) {
     printf(" %i %s \n",ifile,fileList[ifile].c_str());
