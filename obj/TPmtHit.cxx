@@ -18,6 +18,8 @@ void TPmtHit::clear()
   ratio=0;
   qhit=0;
   qpeak=0;
+  qUnhit=0;
+  qUnpeak=0;
   fwhm=0; 
   peakTime=0;
   offset=0;

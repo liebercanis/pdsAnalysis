@@ -28,6 +28,9 @@
 #include <TStyle.h>
 #include <TCanvas.h>
 #include <TGraphErrors.h>
+#include <TPaveStats.h>
+#include <TText.h>
+#include <TF1.h>
 //   ****back to the V1720 
 typedef std::complex<double> Complex;
 
@@ -105,7 +108,7 @@ public :
    
    std::vector<Int_t> findMaxPeak(std::vector<Double_t> v, Double_t threshold,Double_t sthreshold); 
    std::vector<Int_t> findPeaks(std::vector<Double_t> v, Double_t threshold,Double_t sthreshold); 
-   Int_t findHits(Int_t ipmt, Double_t sum,  std::vector<Int_t> peakTime, std::vector<Double_t> ddigi); 
+   Int_t findHits(Int_t ipmt, Double_t sum,  std::vector<Int_t> peakTime, std::vector<Double_t> ddigi, std::vector<Double_t> ddigiUn, Int_t type); 
 
    Int_t readGainConstants(TString fileName="gainConstants.txt"); // returns number of gains read
    double getBaseline(int ipmt ) { return hBase->GetBinContent(ipmt+1); }
@@ -170,10 +173,11 @@ public :
    TH1D* hHitQ[NPMT];
    TH1D* hNHits[NPMT];
    TH1D* hQMax[NPMT];
-
+   TH1D* hQUnPeak[NPMT];
+   
    TH1D* hCounts[NPMT];
    TH1D* hBaseline[NPMT];
    TH1D* hOcc;
    TH1D* hNoise;
-   TH1D* hBase;   
+   TH1D* hBase;  
 };

@@ -30,6 +30,8 @@ class TPmtHit: public TNamed {
     Double_t ratio;
 	  Double_t qhit;
 	  Double_t qpeak;
+	  Double_t qUnhit;
+	  Double_t qUnpeak;
     Double_t fwhm; 
     Double_t peakTime;
     Double_t offset;
