@@ -51,7 +51,7 @@ TPdsSummary::TPdsSummary(TString theDirName): TNamed("TPdsSummary","TPdsSummary"
 TPdsSummary::~TPdsSummary(){}
 
 
-void TPdsSummary::run(Int_t maxFiles) 
+void TPdsSummary::run(Int_t fFirst, Int_t maxFiles) 
 { 
   if(isEmpty) {
     printf(" run returning because fileList is empty\n");
@@ -60,7 +60,7 @@ void TPdsSummary::run(Int_t maxFiles)
   // structure for holding pmt info 
   //open output file
   TString fileTag;
-  fileTag.Form("files-%i_",maxFiles);
+  fileTag.Form("files-%i-%i_",fFirst,maxFiles);
   TString summaryFileName = TString("pdsOutput/pdsSummary_") + fileTag +dirName + TString(".root");
   summaryFile = new TFile(summaryFileName,"recreate");
   summaryFile->cd();
@@ -72,9 +72,10 @@ void TPdsSummary::run(Int_t maxFiles)
 
   printf(" now loop over files in %s is %lu reading %i \n",dirName.Data(),fileList.size(),maxFiles);
   // loop over files
+  unsigned ffirst =fFirst;
   unsigned fmax = fileList.size();
   if(maxFiles>0) fmax=UInt_t(maxFiles);
-  for( unsigned ifile =0; ifile < fmax ; ++ifile ) {
+  for( unsigned ifile =ffirst ; ifile < fmax ; ++ifile ) {
     printf(" %i %s \n",ifile,fileList[ifile].c_str());
     readFile(ifile);
     printf(" have written %i bytes \n",summaryTree->FlushBaskets());

@@ -39,7 +39,7 @@ class TPdsSummary: public TNamed {
     std::vector<Int_t> findRFTimes(int ipmt, double& step); 
     Int_t triggerInfo();
     void ADCFilter(int iB, int iC);
-    void run(Int_t maxFiles);
+    void run(Int_t fFirst=0, Int_t maxFiles=0);
     void loop(); 
     void readFile(UInt_t ifile);
     void getTag(std::string fname) { tag = fname.substr( fname.find("_")+1, fname.find(".") -1  - fname.find("_")); return;}

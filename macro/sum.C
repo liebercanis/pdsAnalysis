@@ -53,16 +53,38 @@ void sum(TString tag= "PDS_beamtime_files_max1000")
 
   TPmtSummary *pmtSum = new TPmtSummary();
   sumTree->SetBranchAddress("pmtSummary",&pmtSum);
+ 
+  outfile->cd();
+  TGraphErrors *grsum[NPMT];
+  TString name, title;
+  for(int ipmt=0; ipmt<NPMT; ++ipmt) {
+    grsum[ipmt] = new TGraphErrors(aSize);
+    name.Form("qmax_pmt%i",ipmt);
+    title.Form("qmax_pmt%i",ipmt);
+    grsum[ipmt]->SetNameTitle(name,title);
+    grsum[ipmt]->SetMarkerStyle(20+ipmt%3);
+    grsum[ipmt]->SetMarkerSize(0.5);
+  }
 
-   for(unsigned entry =0; entry < aSize; ++entry ) {
-     sumTree->GetEntry(entry);
-     string tag = pmtSum->tag;
-     Int_t month = pmtSum->getMonth();
-     Int_t day = pmtSum->getDay();
-     Int_t hour = pmtSum->getHour();
-     Int_t seg = pmtSum->getSegment();
-     if(entry%1==0) printf("...entry %i tag %s  month %i day %i hour %i seg %i \n",entry,tag.c_str(),month,day,hour,seg);
+  for(unsigned entry =0; entry < aSize; ++entry ) {
+    sumTree->GetEntry(entry);
+    string tag = pmtSum->tag;
+    Int_t month = pmtSum->getMonth();
+    Int_t day = pmtSum->getDay();
+    Int_t hour = pmtSum->getHour();
+    Int_t seg = pmtSum->getSegment();
+    if(entry%100==0) printf("...entry %i tag %s  month %i day %i hour %i seg %i \n",entry,tag.c_str(),month,day,hour,seg);
+    double time = double(entry);
+    double etime=0;
+    for(int ipmt=0; ipmt<NPMT; ++ipmt) {
+      grsum[ipmt]->SetPoint(entry,time,pmtSum->qmax[ipmt]); 
+      grsum[ipmt]->SetPointError(entry,etime,pmtSum->eqmax[ipmt]);  
     }
+  }
+  for(int ipmt=0; ipmt<NPMT; ++ipmt) outfile->Append(grsum[ipmt]); 
+  TCanvas *c1 = new TCanvas(tag,tag);
+  grsum[0]->Draw("AP");
+  grsum[1]->Draw("PSAME");
 
   outfile->Write();
 }
