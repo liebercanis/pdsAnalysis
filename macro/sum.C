@@ -31,18 +31,26 @@ int toPmtNumber(int ib, int ic)
 }
 
 
-void sum(TString tag= "PDS_beamtime_files_max1000")
-{
-  TString inputFileName = TString("../pdsOutput/pdsSummary_")+tag+TString(".root");
-  printf(" opening file %s \n",inputFileName.Data()); 
-  TFile *infile = new TFile(inputFileName);
-  TTree *sumTree=NULL;
+void sum(TString tag= "PDS_beamtime_files")
+{ 
+  //TString inputFileName = TString("../pdsOutput/pdsSummary_")+tag+TString(".root");
+  //printf(" opening file %s \n",inputFileName.Data()); 
+  //TFile *infile = new TFile(inputFileName);
+  TChain *sumTree= new TChain("summaryTree");
+  sumTree->Add("../pdsOutput/pdsSummary_files-0-500_PDS_beamtime_files.root");
+  sumTree->Add("../pdsOutput/pdsSummary_files-1000-500_PDS_beamtime_files.root");
+  sumTree->Add("../pdsOutput/pdsSummary_files-1500-500_PDS_beamtime_files.root");
+  sumTree->Add("../pdsOutput/pdsSummary_files-2000-500_PDS_beamtime_files.root");
+  sumTree->Add("../pdsOutput/pdsSummary_files-2500-500_PDS_beamtime_files.root");
+  sumTree->Add("../pdsOutput/pdsSummary_files-3000-500_PDS_beamtime_files.root");
+  sumTree->Add("../pdsOutput/pdsSummary_files-3500-500_PDS_beamtime_files.root");
+  sumTree->Add("../pdsOutput/pdsSummary_files-500-500_PDS_beamtime_files.root");
 
-  // tree has to be in file
+  //sumTree = (TTree*) infile->Get("summaryTree");
   Long64_t aSize=0;
-  sumTree = (TTree*) infile->Get("summaryTree");
-  if(sumTree) aSize=sumTree->GetEntriesFast();
-  printf(" smmaryTree with %i entries \n",int(aSize));
+  if(sumTree) aSize=sumTree->GetEntries();
+  else  printf(" no summaryTree  \n");
+  printf(" summaryTree with %i entries \n",int(aSize));
 
   if(aSize==0) return;
 
@@ -55,6 +63,7 @@ void sum(TString tag= "PDS_beamtime_files_max1000")
   sumTree->SetBranchAddress("pmtSummary",&pmtSum);
  
   outfile->cd();
+  int icolor[NPMT]={1,2,3,4,5,6,7,8,9,1,2,3,4,5,6,7,8,9,1,2,3};
   TGraphErrors *grsum[NPMT];
   TString name, title;
   for(int ipmt=0; ipmt<NPMT; ++ipmt) {
@@ -63,6 +72,8 @@ void sum(TString tag= "PDS_beamtime_files_max1000")
     title.Form("qmax_pmt%i",ipmt);
     grsum[ipmt]->SetNameTitle(name,title);
     grsum[ipmt]->SetMarkerStyle(20+ipmt%3);
+    grsum[ipmt]->SetMarkerColor(icolor[ipmt]);
+    grsum[ipmt]->SetLineColor(icolor[ipmt]);
     grsum[ipmt]->SetMarkerSize(0.5);
   }
 
@@ -73,8 +84,8 @@ void sum(TString tag= "PDS_beamtime_files_max1000")
     Int_t day = pmtSum->getDay();
     Int_t hour = pmtSum->getHour();
     Int_t seg = pmtSum->getSegment();
-    if(entry%100==0) printf("...entry %i tag %s  month %i day %i hour %i seg %i \n",entry,tag.c_str(),month,day,hour,seg);
-    double time = double(entry);
+    double time = double(hour)+double(24*day+24*30*(month-7));
+    if(entry%100==0) printf("...entry %i tag %s  month %i day %i hour %i seg %i time %0.f \n",entry,tag.c_str(),month,day,hour,seg,time);
     double etime=0;
     for(int ipmt=0; ipmt<NPMT; ++ipmt) {
       grsum[ipmt]->SetPoint(entry,time,pmtSum->qmax[ipmt]); 
@@ -83,8 +94,9 @@ void sum(TString tag= "PDS_beamtime_files_max1000")
   }
   for(int ipmt=0; ipmt<NPMT; ++ipmt) outfile->Append(grsum[ipmt]); 
   TCanvas *c1 = new TCanvas(tag,tag);
+  grsum[0]->GetHistogram()->GetXaxis()->SetTitle(" time in hours ");
   grsum[0]->Draw("AP");
-  grsum[1]->Draw("PSAME");
+  for(int ipmt=1; ipmt<NPMT; ++ipmt) grsum[ipmt]->Draw("PSAME");
 
   outfile->Write();
 }
