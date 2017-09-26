@@ -256,11 +256,16 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       pmtEvent->event=event_number;
       //pmtEvent.tpcTrig;
       //pmtEvent.pdsTrig;
+      pmtEvent->rft21=rftime21;
+      pmtEvent->rft22=rftime22;
+      pmtEvent->rft23=rftime23;
       pmtEvent->gpsYear=gps_Year;
       pmtEvent->gpsDay=gps_daysIntoYear;;
       pmtEvent->gpsSec=gps_secIntoDay;
       pmtEvent->gpsNs=gps_nsIntoSec;;
-
+      //cout<<pmtEvent->gpsYear<<pmtEvent->gpsDay<<pmtEvent->gpsSec<<pmtEvent->gpsNs<<endl;
+      
+      
       for(UInt_t ib=0; ib<NB; ++ib) {
         UInt_t time = digitizer_time[ib];
         //printf(" board %u time %u \n",ib,time);
@@ -711,6 +716,12 @@ Int_t pmtAna::triggerInfo()
   if(r1==0&&r2==0&r3==0) { // zero 
     type = TPmtEvent::TRIG000;
     ++pmtSummary->ntrig000;
+  } else if ( r1==1 && r2==1 && r3==1 ) {
+   type = TPmtEvent::TRIG111; 
+    ++pmtSummary->ntrig111;
+  } else if ( r1==1 || r2==1 || r3==1 ) {
+   type = TPmtEvent::TRIG1XX; 
+    ++pmtSummary->ntrig1xx;
   } else if (r1==0||r2==0||r3==0) { 
     type = TPmtEvent::TRIG0XX;
     ++pmtSummary->ntrig5xx; 
@@ -726,7 +737,7 @@ Int_t pmtAna::triggerInfo()
   } else if ( r1==4 || r2==4 || r3==4 ) {
    type = TPmtEvent::TRIG4XX; 
     ++pmtSummary->ntrig4xx;
-  }
+  } 
   return type;
  }
 
