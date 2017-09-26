@@ -38,7 +38,7 @@ class TPmtHit: public TNamed {
 
     Int_t  nsamples;
 		std::vector<Double_t>  qsample;		 
-		ClassDef(TPmtHit,1)
+		ClassDef(TPmtHit,2)
 };
 #endif
 

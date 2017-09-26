@@ -12,6 +12,9 @@ void TPmtEvent::clear()
 {
   trigType = TRIGUNKNOWN; 
   run=0;
+  rft21.clear();
+  rft22.clear();
+  rft23.clear();
   event=0;
   tpcTrig=0;
   pdsTrig=0;

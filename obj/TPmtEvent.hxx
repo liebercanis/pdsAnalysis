@@ -27,6 +27,9 @@ class TPmtEvent: public TNamed {
 		// data elements
     Int_t trigType;
     Int_t    run;
+    std::vector<Int_t> rft21;
+    std::vector<Int_t> rft22;
+    std::vector<Int_t> rft23;
     Int_t    event;
     Int_t    tpcTrig;
     Int_t    pdsTrig;
@@ -38,7 +41,7 @@ class TPmtEvent: public TNamed {
     std::vector<Double_t> qsum;
     Int_t  nhits;
 		std::vector<TPmtHit>  hit;		 
-		ClassDef(TPmtEvent,1)
+		ClassDef(TPmtEvent,2)
 };
 #endif
 
