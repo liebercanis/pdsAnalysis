@@ -24,7 +24,7 @@ class TPmtHit: public TNamed {
 		void print(int ihit=0);
 		// data elements
     Int_t ipmt;
-	  Int_t time;
+	  Int_t timeToRF; // this is time to RF pulse before the peakTime 
     Int_t tstart;
     Int_t tstop;
     Double_t ratio;

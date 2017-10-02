@@ -4,6 +4,7 @@
 enum {MAXSAMPLES=2100};
 enum {NB=3,NCPMT=7,NC=NCPMT+1,NS=MAXSAMPLES};
 enum {NPMT=NB*NCPMT};
+  TH1D *hTimeToRF;
   TH1D *hOcc;
   TH1D *hNoise;
   TH1D *hBase;
@@ -16,10 +17,13 @@ enum {NPMT=NB*NCPMT};
   TH1D* hCounts[NPMT];
   TH1D* hBaseline[NPMT];
 
-  TH1D* hQHitCut[NPMT];
+  TH1D* hQinHit; 
+  TH1D* hQHitOn[NPMT];
+  TH1D* hQHitOff[NPMT];
   TH1D* hQHitLength[NPMT];
+  TNtuple *ntHit;
   //TH1D* hQHitTime[NPMT];
-  
+  TPmtEvent *ev;
 // returns -1 if pmt does not exist 
 // populate 3 boards, each from channel 0-6.  Channel 7 is the RF pulse. 
 // valid pmt are 0 to 20, RF channels are 21,22,23
@@ -118,7 +122,7 @@ void canPlots(TString tag)
       can3[ican]->cd(ip+1); 
       hPeaks[ipmt]->Draw();
       hSamples[ipmt]->Draw("sames");
-      can2[ican]->cd(ip+1);  gPad->SetLogy(); hCounts[ipmt]->Draw();
+      can2[ican]->cd(ip+1);  gPad->SetLogy(); if(hCounts[ipmt]) hCounts[ipmt]->Draw();
       ++ip;
     }
 
@@ -153,8 +157,13 @@ void newCanPlots(TString tag)
         can2[ican]->Divide(1,3);
 
       }
-      can1[ican]->cd(ip+1); gPad->SetLogy();  hQHitCut[ipmt]->Draw();
-      can2[ican]->cd(ip+1); gPad->SetLogy();  hQHitLength[ipmt]->Draw();
+      can1[ican]->cd(ip+1); gPad->SetLogy(); 
+      hQHitOn[ipmt]->SetNormFactor();
+      hQHitOff[ipmt]->SetNormFactor();
+      hQHitOn[ipmt]->Draw();
+      hQHitOff[ipmt]->SetLineColor(kRed);
+      hQHitOff[ipmt]->Draw("sames");
+      can2[ican]->cd(ip+1); gPad->SetLogy(); hQHitLength[ipmt]->Draw();
       ++ip;
     }
 
@@ -166,7 +175,8 @@ void newCanPlots(TString tag)
 
 
 
-void ana(TString tag= "07-26-0914_0")
+void ana(TString tag="07-31-1555_0")
+    //"07-26-0914_0") // "07-31-1555_0") //
 {
   TString inputFileName = TString("../pdsOutput/pmtAna_")+tag+TString(".root");
   printf(" opening file %s \n",inputFileName.Data()); 
@@ -185,8 +195,10 @@ void ana(TString tag= "07-26-0914_0")
   TString outputFileName = TString("ana-")+tag+TString(".root");
   TFile *outfile = new TFile(outputFileName,"recreate");
   printf(" opening output file %s \n",outputFileName.Data());
-
-
+  hTimeToRF = new TH1D("TimeToRF"," hit time to RF time",MAXSAMPLES/2,0,MAXSAMPLES+1);
+  ntHit = new TNtuple("ntAnaHit", " ana hits ","ipmt:rft:peakt:length:ratio:q:qp");
+  hQinHit = new TH1D("QinHit"," ADC counts of bins in hit ",2000,0,20);
+  outfile->ls();
     
   TString hname;
   TString htitle;
@@ -195,11 +207,18 @@ void ana(TString tag= "07-26-0914_0")
     for(UInt_t ic=0; ic<NC; ++ic) {
       int ipmt = toPmtNumber(ib,ic);
       if(ipmt<0||ipmt>=NPMT) continue;
-      hname.Form("QhitCut_b%u_ch%u_pmt%u",ib,ic,ipmt);
-      htitle.Form("Qhit board%u channel%u pmt%u",ib,ic,ipmt);
-      hQHitCut[ipmt] = new TH1D(hname,htitle,350,0,3500);
-      hQHitCut[ipmt]->SetXTitle(" ADC counts ");
-      hQHitCut[ipmt]->SetYTitle(Form(" # hits %i ",ipmt));
+      
+      hname.Form("QhitOff_b%u_ch%u_pmt%u",ib,ic,ipmt);
+      htitle.Form("Qhit between RF board%u channel%u pmt%u",ib,ic,ipmt);
+      hQHitOff[ipmt] = new TH1D(hname,htitle,500,0,1000);
+      hQHitOff[ipmt]->SetXTitle(" ADC counts ");
+      hQHitOff[ipmt]->SetYTitle(Form(" # hits %i ",ipmt));
+
+      hname.Form("QhitOn_b%u_ch%u_pmt%u",ib,ic,ipmt);
+      htitle.Form("Qhit at RF board%u channel%u pmt%u",ib,ic,ipmt);
+      hQHitOn[ipmt] = new TH1D(hname,htitle,500,0,1000);
+      hQHitOn[ipmt]->SetXTitle(" ADC counts ");
+      hQHitOn[ipmt]->SetYTitle(Form(" # hits %i ",ipmt));
 
       hname.Form("QhitLength_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form("Qhit/length board%u channel%u pmt%u",ib,ic,ipmt);
@@ -209,14 +228,12 @@ void ana(TString tag= "07-26-0914_0")
 
     }
   }
-
-
   
   getFileHistograms(infile);
-  canPlots(tag);
+  //canPlots(tag);
 
   
-  TPmtEvent *ev = new TPmtEvent();
+  ev = new TPmtEvent();
   pmtTree->SetBranchAddress("pmtEvent",&ev);
 
   std::vector<TPmtHit>  hit;
@@ -224,16 +241,26 @@ void ana(TString tag= "07-26-0914_0")
     pmtTree->GetEntry(entry);
     hit.clear();
     hit = ev->hit;
-    if(entry%100==0) printf("...entry %i hits %lu \n",entry,hit.size());
+    if(entry%1000==0) printf("...entry %i hits %lu trig type %i (%lu,%lu,%lu) \n",entry,hit.size(), ev->trigType,
+        ev->rft21.size(),ev->rft23.size(),ev->rft23.size());
     for(int ihit =0; ihit < hit.size(); ++ihit) {
       TPmtHit* phit = &(ev->hit[ihit]);
+      for(int is=0; is<phit->nsamples; ++is) hQinHit->Fill(phit->qsample[is]);
+      Int_t timeToRF = phit->timeToRF; 
+      if(ev->trigType==TPmtEvent::TRIG111||ev->trigType==TPmtEvent::TRIG444||ev->trigType==TPmtEvent::TRIG555) 
+        hTimeToRF->Fill(timeToRF);
+      //if(timeToRF<MAXSAMPLES) printf(" trig %i hit %i pmt %i time %i \n",ev->trigType, ihit, phit->ipmt,timeToRF);
       int length = TMath::Abs(phit->tstop-phit->tstart)+1;
       //printf(" \t %i %i ipmt %i length %i qhit %f \n",entry,ihit,phit->ipmt,length,phit->qhit);
-      // cut on ratio
-      if(phit->ratio<0.4) {
-        hQHitCut[phit->ipmt]->Fill(phit->qhit);
+      // cut on time since RF pulse
+      if(timeToRF<100) {
+        hQHitOn[phit->ipmt]->Fill(phit->qhit);
         hQHitLength[phit->ipmt]->Fill(phit->qhit/double(length));
+      } else if(timeToRF>500) {// off RF pulse 
+        hQHitOff[phit->ipmt]->Fill(phit->qhit);  
       }
+      
+      ntHit->Fill(phit->ipmt,phit->timeToRF, phit->peakTime, length, phit->ratio, phit->qhit, phit->qpeak);
     }
   }
 

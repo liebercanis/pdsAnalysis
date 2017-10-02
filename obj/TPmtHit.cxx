@@ -12,7 +12,7 @@ TPmtHit::~TPmtHit(){}
 void TPmtHit::clear()
 {
   ipmt=0;
-  time=0;
+  timeToRF=0;
   tstart=0;
   tstop=0;
   ratio=0;
@@ -29,7 +29,7 @@ void TPmtHit::clear()
 
 void TPmtHit::print(int ihit)
 {
-  printf(" \n \n TPmtHit %i  time %i qhit %f qmax %f \n",ihit,time,qhit,qpeak);
+  printf(" \n \n TPmtHit %i  timeToRF %i qhit %f qmax %f \n",ihit,timeToRF,qhit,qpeak);
   printf("      nsamples %i start %i stop %i \n",nsamples,tstart,tstop);
   for(int i=0; i<nsamples ; ++i) printf(" %i %f ; ",i,qsample[i]);
   printf(" end of TPmtHit \n\n");

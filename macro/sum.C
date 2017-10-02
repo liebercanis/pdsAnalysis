@@ -59,13 +59,21 @@ void sum(TString tag= "PDS_beamtime_files")
   TFile *outfile = new TFile(outputFileName,"recreate");
   printf(" opening output file %s \n",outputFileName.Data());
 
+  TH2F *hSumPeak = new TH2F("SumPeak"," sum versus peak ",1000,0,4000,150,0,150);
+  hSumPeak->GetXaxis()->SetTitle(" charge sum ");
+  hSumPeak->GetYaxis()->SetTitle(" peak charge ");
+
+  TNtuple *ntTrig = new TNtuple("ntTrig"," triggers ","time:n555:n5xx:n444:n4xx:n111:n1xx:n000:n0xx");
+
+
   TPmtSummary *pmtSum = new TPmtSummary();
   sumTree->SetBranchAddress("pmtSummary",&pmtSum);
  
   outfile->cd();
   int icolor[NPMT]={1,2,3,4,5,6,7,8,9,1,2,3,4,5,6,7,8,9,1,2,3};
-  TGraphErrors *grsum[NPMT];
   TString name, title;
+
+  TGraphErrors *grsum[NPMT];
   for(int ipmt=0; ipmt<NPMT; ++ipmt) {
     grsum[ipmt] = new TGraphErrors(aSize);
     name.Form("qmax_pmt%i",ipmt);
@@ -76,6 +84,18 @@ void sum(TString tag= "PDS_beamtime_files")
     grsum[ipmt]->SetLineColor(icolor[ipmt]);
     grsum[ipmt]->SetMarkerSize(0.5);
   }
+  TGraphErrors *grpeak[NPMT];
+  for(int ipmt=0; ipmt<NPMT; ++ipmt) {
+    grpeak[ipmt] = new TGraphErrors(aSize);
+    name.Form("qsum_pmt%i",ipmt);
+    title.Form("qsum_pmt%i",ipmt);
+    grpeak[ipmt]->SetNameTitle(name,title);
+    grpeak[ipmt]->SetMarkerStyle(20+ipmt%3);
+    grpeak[ipmt]->SetMarkerColor(icolor[ipmt]);
+    grpeak[ipmt]->SetLineColor(icolor[ipmt]);
+    grpeak[ipmt]->SetMarkerSize(0.5);
+  }
+  
 
   for(unsigned entry =0; entry < aSize; ++entry ) {
     sumTree->GetEntry(entry);
@@ -85,18 +105,36 @@ void sum(TString tag= "PDS_beamtime_files")
     Int_t hour = pmtSum->getHour();
     Int_t seg = pmtSum->getSegment();
     double time = double(hour)+double(24*day+24*30*(month-7));
+    ntTrig->Fill(time,pmtSum->ntrig555,pmtSum->ntrig5xx,pmtSum->ntrig444,pmtSum->ntrig4xx,pmtSum->ntrig111,pmtSum->ntrig1xx,pmtSum->ntrig000,pmtSum->ntrig0xx);
+    
     if(entry%100==0) printf("...entry %i tag %s  month %i day %i hour %i seg %i time %0.f \n",entry,tag.c_str(),month,day,hour,seg,time);
     double etime=0;
     for(int ipmt=0; ipmt<NPMT; ++ipmt) {
-      grsum[ipmt]->SetPoint(entry,time,pmtSum->qmax[ipmt]); 
-      grsum[ipmt]->SetPointError(entry,etime,pmtSum->eqmax[ipmt]);  
+      hSumPeak->Fill(pmtSum->qsum[ipmt],pmtSum->qmax[ipmt]);
+      grsum[ipmt]->SetPoint(entry,time,pmtSum->qsum[ipmt]); 
+      grsum[ipmt]->SetPointError(entry,etime,pmtSum->eqsum[ipmt]);  
+      grpeak[ipmt]->SetPoint(entry,time,pmtSum->qmax[ipmt]); 
+      grpeak[ipmt]->SetPointError(entry,etime,pmtSum->eqmax[ipmt]);  
+
     }
   }
-  for(int ipmt=0; ipmt<NPMT; ++ipmt) outfile->Append(grsum[ipmt]); 
-  TCanvas *c1 = new TCanvas(tag,tag);
+  for(int ipmt=0; ipmt<NPMT; ++ipmt) {outfile->Append(grsum[ipmt]);outfile->Append(grpeak[ipmt]);} 
+  TString can1Name; can1Name.Form("%s-%s",tag.Data(),"sum");
+  cout << " making " << can1Name << endl;
+  TCanvas *c1 = new TCanvas(can1Name,can1Name);
   grsum[0]->GetHistogram()->GetXaxis()->SetTitle(" time in hours ");
+  grsum[0]->SetTitle("sum charge");
   grsum[0]->Draw("AP");
   for(int ipmt=1; ipmt<NPMT; ++ipmt) grsum[ipmt]->Draw("PSAME");
+
+  TString can2Name; can2Name.Form("%s-%s",tag.Data(),"peak");
+  cout << " making " << can2Name << endl;
+  TCanvas *c2 = new TCanvas(can2Name,can2Name);
+  grpeak[0]->GetHistogram()->GetXaxis()->SetTitle(" time in hours ");
+  grpeak[0]->SetTitle("peak charge");
+  grpeak[0]->Draw("AP");
+  for(int ipmt=1; ipmt<NPMT; ++ipmt) grpeak[ipmt]->Draw("PSAME");
+
 
   outfile->Write();
 }
