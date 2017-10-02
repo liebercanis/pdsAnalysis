@@ -42,7 +42,7 @@ public :
   enum {NALLCH=NB*NC};
   enum {MAXADC=4095};
   //peak finding
-  enum {minLength=2,maxHalfLength=5};
+  enum {minLength=3,maxHalfLength=100};
  
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
@@ -94,7 +94,12 @@ public :
    UInt_t Loop(UInt_t nToLoop=0, UInt_t firstEntry=0);
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
-
+   // Top Hat filter algorithm
+   // parameter is top hat window which should be odd 
+   std::vector<Double_t> MovingAverageFilter(std::vector<Double_t> signal,Int_t aveN);
+   // nearest RF time to hit peak time
+   void getTimeToRF(); 
+   
    TTree* pmtTree;
    TPmtEvent* pmtEvent;
    TFile* outFile;

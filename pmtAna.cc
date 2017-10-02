@@ -232,6 +232,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
    Long64_t nbytes=0;
    std::vector<Double_t> sdigi;  // source
    std::vector<Double_t> ddigi;  // baseline subtracted
+   std::vector<Double_t> fdigi;  // baseline subtracted and filterd
 
    // no gain applied
    std::vector<Double_t> sdigiUn;  // source
@@ -280,6 +281,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           // make a vector of samples for sorting.
           sdigi.clear();
           ddigi.clear();
+          fdigi.clear();
           sdigiUn.clear();
           ddigiUn.clear();
           
@@ -330,9 +332,10 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
               qmaxUn=digiUn;
               tmaxUn=is+1;
             }
-            
+
+              
             ddigi.push_back(digi);
-	    ddigiUn.push_back(digiUn);
+            ddigiUn.push_back(digiUn);
             if(jentry%100==0)ntDigi->Fill(double(ipmt),double(is),digi);
             if(pmtEvent->trigType == TPmtEvent::TRIG000) hSamplesPDS[ipmt]->SetBinContent(int(is+1),hSamplesPDS[ipmt]->GetBinContent(int(is+1))+digi);
             else hSamples[ipmt]->SetBinContent(int(is+1),hSamples[ipmt]->GetBinContent(int(is+1))+digi);
@@ -344,19 +347,41 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
             }
           } // loop over digitizations
 
+          // filtered 
+          fdigi = MovingAverageFilter(ddigi,5); // parameter is top hat window which should be odd
+
+          // make some single event sample plots 
+          if(ientry<2) {
+            TString hname,htitle;
+            hname.Form("Digi_pmt%i_ev%i",ipmt,Int_t(ientry));
+            htitle.Form("digi samples pmt %i ev %i",ipmt,Int_t(ientry));
+            TH1D* hDigi = new TH1D(hname,htitle,NS,0,NS);
+            hname.Form("FDigi_pmt%i_ev%i",ipmt,Int_t(ientry));
+            htitle.Form("filtered digi samples pmt %i ev %i",ipmt,Int_t(ientry));
+            TH1D* hFDigi = new TH1D(hname,htitle,NS,0,NS);
+            for(unsigned idigi=0; idigi<ddigi.size(); ++idigi) {
+              hDigi->SetBinContent(int(idigi+1),ddigi[idigi]);
+              hFDigi->SetBinContent(int(idigi+1),fdigi[idigi]);
+            }
+          }
+          
+
           //if(sum>400&&pmtEvent->trigType!=7) printf(" SSSSSSSSS event %lli trig %i sum %f   \n", jentry, pmtEvent->trigType, sum );
           hCounts[ipmt]->Fill(sum);
           // peak finding
-          std::vector<Int_t> peakTime = findPeaks(ddigi,4.0*noise,1.0*noise);
-          //std::vector<Int_t> peakTime = findMaxPeak(ddigi,8.0*noise,3.0*noise);
-          Int_t nhits = findHits(ipmt,sum,peakTime,ddigi,ddigiUn,pmtEvent->trigType);
+          //printf("calling find peaks event %i pmt %i noise %f 68v %f base %f \n",event_number,ipmt,noise,sdigi[0.68*sdigi.size()], baselineMedian);
+          std::vector<Int_t> peakTime = findPeaks(fdigi,7.0*noise,1.0*noise);
+          //std::vector<Int_t> peakTime = findMaxPeak(fdigi,8.0*noise,3.0*noise);
+          Int_t nhits = findHits(ipmt,sum,peakTime,fdigi,ddigiUn,pmtEvent->trigType);
+          getTimeToRF();
+          // now fill in the time since last RF pulse
           hOcc->Fill(ipmt+1,nhits);
           hNHits[ipmt]->Fill(nhits);
           //printf(" event %i nhits %i \n", pmtEvent->event, pmtEvent->nhits );
           for (UInt_t ip = 0; ip < peakTime.size(); ip++) {
             Int_t bin = peakTime[ip];
-            //printf(" ipmt %i ip %i bin %i v %f \n",ipmt,ip,bin,ddigi[bin]);
-            hPeaks[ipmt]->SetBinContent(bin+1, hPeaks[ipmt]->GetBinContent(bin+1)+ddigi[bin]);
+            //printf(" ipmt %i ip %i bin %i v %f \n",ipmt,ip,bin,fdigi[bin]);
+            hPeaks[ipmt]->SetBinContent(bin+1, hPeaks[ipmt]->GetBinContent(bin+1)+fdigi[bin]);
           }
           hQMax[ipmt]->Fill(qmax);
           ntPmt->Fill(double(pmtEvent->trigType),double(ipmt),tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,baselineMedian-baselineNominal[ipmt],nhits);
@@ -548,31 +573,32 @@ std::vector<Int_t> pmtAna::findPeaks(std::vector<Double_t> v, Double_t threshold
   Int_t vsize = Int_t(v.size());
 
   //printf(" findPeaks \n");
-  for(Int_t  ibin=0; ibin<= vsize; ++ibin ) {
+  for( Int_t ibin=0; ibin<= vsize; ++ibin ) {
     if( v[ibin]>threshold) {// starting possible new hit
       // consider this a "seed" and find full hit
       klow=ibin;
       for(Int_t k=ibin-1; k>=max(0,ibin-maxHalfLength); --k) {
-        if(v[k]<sthreshold) break;
+        if(v[k]<=sthreshold) break;
         klow=k;
       }
       khigh=ibin;
       for(Int_t k=ibin+1; k<min(ibin+maxHalfLength,vsize); ++k) {
-        if(v[k]<sthreshold) break;
+        if(v[k]<=sthreshold) break;
         khigh=k;
       }
       kover = khigh-klow+1;
       // found good pulse
       if(kover>minLength) { 
         for(Int_t k=klow ; k<= khigh; ++k) peakTime.push_back(k);
-        //printf(" peakTime %i, %i ?  %i size %i .... \n ",klow,khigh,kover,peakTime.size());
-        //for(UInt_t ih=0; ih<peakTime.size(); ++ih) printf(" \t  %i t= %i \n",ih,peakTime[ih]);
+        //printf(" peakTime  sthreshod %f ibin %i klow %i khigh %i vlow-1 %f vlow %f vibin %f vigh %f vigh+1 %f kover %i.... \n ",
+          //  sthreshold,ibin,klow,khigh,v[klow-1],v[klow],v[ibin],v[khigh],v[khigh+1],kover);
       }
       // skip to end of sthreshold search 
       ibin=khigh;
     }
   }
    
+  //for(UInt_t ih=0; ih<peakTime.size(); ++ih) printf("  %i t= %i ADC= %f\n",ih,peakTime[ih],v[peakTime[ih]]);
   return peakTime;
 }
 
@@ -603,31 +629,32 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     //printf(" building list %i size %i \n",hitList.size(),hitTime.size());
   }
 
-  //printf(" list of hits  %u \n",hitList.size());
+  //printf(" list of hits  %lu \n",hitList.size());
   Int_t nhits=0;
   for(UInt_t il=0; il<hitList.size(); ++il) {
     TPmtHit phit;
     hitTime=hitList[il];
-   // printf(" %i hitTime.Size %i \n ",il,hitTime.size());
+    //printf(" il= %i hitTime.Size %lu \n ",il,hitTime.size());
     Double_t qhit=0;
     UInt_t peakt=0;
     Double_t qpeak=0;
     Double_t qUnhit=0;
     Double_t qUnpeak=0;
     for(UInt_t ih=0; ih<hitTime.size(); ++ih) {
-      //printf(" \t ih = %i time  %i sample %f  ",ih,hitTime[ih],ddigi[hitTime[ih]]);
+      //printf("  ih = %i time  %i ADC %f XXX ",ih,hitTime[ih],ddigi[hitTime[ih]]);
       phit.qsample.push_back(ddigi[hitTime[ih]]);	
       if(ddigi[hitTime[ih]]>qpeak) {
         peakt=hitTime[ih];
         qpeak = ddigi[hitTime[ih]];
-	qUnpeak = ddigiUn[hitTime[ih]];
+        qUnpeak = ddigiUn[hitTime[ih]];
       }
       qhit+=ddigi[hitTime[ih]];
       qUnhit+=ddigiUn[hitTime[ih]];
     }
+       
     // fwhm
     phit.fwhm=0; 
-   // printf("\n qhit %f qpeak %f samples size %i \n",qhit,qpeak,phit.qsample.size());
+    //printf("\n qhit %f qpeak %f samples size %i \n",qhit,qpeak,phit.qsample.size());
     for(UInt_t ih=0; ih<phit.qsample.size(); ++ih) {
       //printf(" %i %f fwhm %f \n ",ih,phit.qsample[ih],phit.fwhm);
       if( phit.qsample[ih] > qpeak/2.0 ) ++phit.fwhm;
@@ -636,11 +663,11 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     //printf(" \t hit %i start %i stop %i  length %i qhit %f  \n",il, hitTime[hitTime.size()-1],hitTime[0],hitTime.size(),qhit);
     // fill in hit
     phit.ipmt=ipmt;
-    phit.time=0;
+    phit.timeToRF=0;
     phit.tstart=hitTime[hitTime.size()-1];
     phit.tstop=hitTime[0];
     phit.qhit=qhit;
-    phit.qhit=qUnhit;
+    phit.qUnhit=qUnhit;
     phit.qpeak=qpeak;
     phit.qUnpeak=qUnpeak;
     phit.ratio=phit.qpeak/phit.qhit;
@@ -655,8 +682,16 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     if(type==TPmtEvent::TRIG000) hQUnPeak[ipmt]->Fill(qUnpeak);
     ntHit->Fill(ipmt,sum,peakt,rft,length,qpeak,qUnpeak,qhit,qUnhit,phit.fwhm,phit.ratio);
     hHitQ[ipmt]->Fill(qhit);
-    //for(UInt_t ih=0; ih<times.size(); ++ih) printf(" \t\t %i t= %i \n",ih,times[ih]);
+    bool bad=false;
+    for(UInt_t ih=0; ih<phit.qsample.size(); ++ih) if(phit.qsample[ih]<=0) bad=true;
+    if(bad) {
+      printf(" \n\t !!pmtHit::fidHits WARNING l.e. zero sample in hit  \n");
+      phit.print();
+    }
     //phit.print();
+    /* error if qhit < 0! */
+    if(phit.qhit<0) { 
+      printf("\n\t !!pmtAna::findHits WARNING negative charge hit!! qhit %f \n",phit.qhit) ; phit.print(); }
     pmtEvent->hit.push_back(phit);
     ++nhits;
   }
@@ -837,10 +872,11 @@ void pmtAna::qualitySummary(TString tag)
     {
       //cout<<"111"<<endl;
       binmax = hQUnPeak[i]->GetMaximumBin();
-      histmax = hQUnPeak[i]->GetBinContent(binmax);
+      double fbinmax = double(binmax);
+      histmax = hQUnPeak[i]->GetBinContent(fbinmax);
       //cout<<"222"<<endl;
       TF1* f2 = new TF1("f2","[2]*exp(-(x-[0])*(x-[0])/(2*[1]*[1]))+[5]*exp(-(x-[3])*(x-[3])/(2*[4]*[4]))",0,35);
-      double par[6]={binmax,binmax/4.,histmax,15,15/2.,histmax/500.};
+      double par[6]={fbinmax,fbinmax/4.,histmax,15,15/2.,histmax/500.};
       f2->SetParLimits(1,0.50,1);
       f2->SetParLimits(3,10,25);
       f2->SetParLimits(4,5,10);
@@ -1034,3 +1070,57 @@ Int_t pmtAna::Cut(Long64_t entry)
 // returns -1 otherwise.
    return 1;
 }
+
+
+// nearest RF time to hit peak time
+void pmtAna::getTimeToRF() 
+{
+  for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {
+    Int_t time = MAXSAMPLES;
+    Int_t hitTime = pmtEvent->hit[ihit].peakTime;
+    for(unsigned i=0; i<pmtEvent->rft21.size() ; ++i) {
+      Int_t tdiff = hitTime - pmtEvent->rft21[i];
+      if(tdiff<0) break;
+      if( tdiff<time ) time=tdiff;
+    }
+    for(unsigned i=0; i<pmtEvent->rft22.size() ; ++i) {
+      Int_t tdiff = hitTime - pmtEvent->rft22[i];
+      if(tdiff<0) break;
+      if( tdiff<time ) time=tdiff;
+    }
+    for(unsigned i=0; i<pmtEvent->rft23.size() ; ++i) {
+      Int_t tdiff = hitTime - pmtEvent->rft23[i];
+      if(tdiff<0) break;
+      if( tdiff<time ) time=tdiff;
+    }
+    pmtEvent->hit[ihit].timeToRF = time;
+  }
+}
+
+
+// neils filter
+std::vector<Double_t> pmtAna::MovingAverageFilter(std::vector<Double_t> signal,Int_t aveN)
+{
+  Int_t N = aveN;
+  if(aveN%2==0) ++N; 
+  std::vector<Double_t> filter;
+  Int_t N2 = std::floor(N/2);
+  for(int i = N2; i < Int_t(signal.size())-N2; i++){
+    Double_t sum = 0;
+    for(int j = i-N2; j <= i+N2; j++){
+      sum += signal[j];
+    }
+    sum /= N;
+    filter.push_back(sum);
+  }
+  
+  for(int i = 0; i < N2 ; i++){
+    std::vector<Double_t>::iterator it;
+    it = filter.begin();
+    filter.insert(it,0.);
+    filter.push_back(0);
+  }
+  return filter;
+}
+
+
