@@ -20,6 +20,7 @@ enum {NPMT=NB*NCPMT};
   TH1D* hQinHit; 
   TH1D* hQHitOn[NPMT];
   TH1D* hQHitOff[NPMT];
+  TH1D* hQHitNoBeam[NPMT];
   TH1D* hQHitLength[NPMT];
   TNtuple *ntHit;
   //TH1D* hQHitTime[NPMT];
@@ -149,10 +150,10 @@ void newCanPlots(TString tag)
       if(ipmt%3==0) {
         ip=0;
         ++ican;
-        canname.Form("QhitCut-set%i-run-%s",ican,tag.Data());
+        canname.Form("Qhit-set%i-run-%s",ican,tag.Data());
         can1[ican] = new TCanvas(canname,canname);
         can1[ican]->Divide(1,3);
-        canname.Form("QhitLength-set%i-run-%s",ican,tag.Data());
+        canname.Form("QHitNoBeam-set%i-run-%s",ican,tag.Data());
         can2[ican] = new TCanvas(canname,canname);
         can2[ican]->Divide(1,3);
 
@@ -163,7 +164,7 @@ void newCanPlots(TString tag)
       hQHitOn[ipmt]->Draw();
       hQHitOff[ipmt]->SetLineColor(kRed);
       hQHitOff[ipmt]->Draw("sames");
-      can2[ican]->cd(ip+1); gPad->SetLogy(); hQHitLength[ipmt]->Draw();
+      can2[ican]->cd(ip+1); gPad->SetLogy(); hQHitNoBeam[ipmt]->Draw();
       ++ip;
     }
 
@@ -210,19 +211,26 @@ void ana(TString tag="07-31-1555_0")
       
       hname.Form("QhitOff_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form("Qhit between RF board%u channel%u pmt%u",ib,ic,ipmt);
-      hQHitOff[ipmt] = new TH1D(hname,htitle,500,0,1000);
+      hQHitOff[ipmt] = new TH1D(hname,htitle,200,0,200);
       hQHitOff[ipmt]->SetXTitle(" ADC counts ");
       hQHitOff[ipmt]->SetYTitle(Form(" # hits %i ",ipmt));
 
+      hname.Form("QhitNoBeam_b%u_ch%u_pmt%u",ib,ic,ipmt);
+      htitle.Form("Qhit between RF board%u channel%u pmt%u",ib,ic,ipmt);
+      hQHitNoBeam[ipmt] = new TH1D(hname,htitle,200,0,200);
+      hQHitNoBeam[ipmt]->SetXTitle(" ADC counts ");
+      hQHitNoBeam[ipmt]->SetYTitle(Form(" # hits %i ",ipmt));
+
+   
       hname.Form("QhitOn_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form("Qhit at RF board%u channel%u pmt%u",ib,ic,ipmt);
-      hQHitOn[ipmt] = new TH1D(hname,htitle,500,0,1000);
+      hQHitOn[ipmt] = new TH1D(hname,htitle,200,0,200);
       hQHitOn[ipmt]->SetXTitle(" ADC counts ");
       hQHitOn[ipmt]->SetYTitle(Form(" # hits %i ",ipmt));
 
       hname.Form("QhitLength_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form("Qhit/length board%u channel%u pmt%u",ib,ic,ipmt);
-      hQHitLength[ipmt] = new TH1D(hname,htitle,200,0,200);
+      hQHitLength[ipmt] = new TH1D(hname,htitle,100,0,100);
       hQHitLength[ipmt]->SetXTitle(" qhit/length (ADC counts) ");
       hQHitLength[ipmt]->SetYTitle(Form(" # hits %i ",ipmt));
 
@@ -259,6 +267,9 @@ void ana(TString tag="07-31-1555_0")
       } else if(timeToRF>500) {// off RF pulse 
         hQHitOff[phit->ipmt]->Fill(phit->qhit);  
       }
+
+      if(ev->trigType==TPmtEvent::TRIG000)  hQHitNoBeam[phit->ipmt]->Fill(phit->qhit);  
+
       
       ntHit->Fill(phit->ipmt,phit->timeToRF, phit->peakTime, length, phit->ratio, phit->qhit, phit->qpeak);
     }
@@ -267,4 +278,6 @@ void ana(TString tag="07-31-1555_0")
   // end of ana 
   newCanPlots(tag);
   outfile->Write();
+
+  for(int ipmt=0; ipmt<NPMT; ++ ipmt) printf(" mean[%i]=%f ; \n",ipmt, hQHitNoBeam[ipmt]->GetMean());
 }

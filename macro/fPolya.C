@@ -1,8 +1,20 @@
 // test polya distributions
-using namespace TMath;
+#include <vector>
+#include "TChain.h"
+#include "TFile.h"
+#include "TCanvas.h"
+#include "TStyle.h"
+#include "TKey.h"
+#include "TNtuple.h"
+#include "TH1F.h"
+#include "TF1.h"
+#include "TMath.h"
+#include "TGraphErrors.h"
 
+using namespace TMath;
+TString htag;
 std::vector<TH1D*> hlist;
-static double xmax=50;
+static double xmax=20;
 static double xmin=0;
 static double nsum;
 // single polya
@@ -43,18 +55,17 @@ void reading(TDirectory *fdir)
   TObject *obj=NULL;
   TKey* key;
   TIter nextkey(fdir->GetListOfKeys());
+  //htag = TString("QhitNoBeam");
+  htag = TString("QhitOff");
   while ( (key = (TKey*)nextkey()) )  {
     fdir->cd();
     obj = key->ReadObj();
     if(obj->IsA()->InheritsFrom("TH1D")) { //case of TH1 or TProfile
       TH1D* h1 = dynamic_cast<TH1D*>(obj);
-      if( TString(h1->GetName()).Contains("QhitOff")) { 
-        hlist.push_back(h1);
-      }
+      if( TString(h1->GetName()).Contains(htag) ) hlist.push_back(h1);
     } 
   }
 }
-
 
 void fPolya(TString tag="07-31-1555_0")
 {
@@ -81,7 +92,7 @@ void fPolya(TString tag="07-31-1555_0")
     fp[i]->SetParameter(0,en);
     fp[i]->SetParameter(1,qn);
     fp[i]->SetParameter(2,10);
-    fp[i]->SetParameter(3,1.0);
+    fp[i]->FixParameter(3,1.0);
     fp[i]->SetParameter(4,1.0);
     fp[i]->SetLineColor(kRed);
   }
@@ -99,27 +110,38 @@ void fPolya(TString tag="07-31-1555_0")
   printf(" bin width %f pol integrates in the range (%f,%f) to  %e\n",fp[0]->GetHistogram()->GetBinWidth(0),xmin,xmax,spole);
  
   TString canTitle;
+  gStyle->SetOptStat(1);
+  gStyle->SetOptFit(1111);
   for(UInt_t ih=0; ih<hlist.size(); ++ih) { 
     double hintegral = hlist[ih]->Integral();
     fp[ih]->SetParameter(4,hintegral);
     hlist[ih]->SetNormFactor(hintegral);
-    canTitle.Form("fit-pmt%i",ih);
+    printf(" \n *********** fitting %s to pmt %i ************ \n",htag.Data(),ih);
+    hlist[ih]->Fit(fp[ih],"R+");
+    canTitle.Form("%s-pmt%i",htag.Data(),ih);
     TCanvas *c0 = new TCanvas(canTitle,canTitle);
-    gStyle->SetOptFit(1);
-    gPad->SetLogy(); 
+    gPad->SetLogy();
     hlist[ih]->SetLineColor(kBlack);
-    hlist[ih]->Fit(fp[ih],"R");
     hlist[ih]->Draw();
     c0->Update();
     c0->Print(".pdf");
   }
 
+  cout << " fits " << htag << endl;
   for(int ih=0; ih<NPMT; ++ih ) {
     double width = hlist[ih]->GetBinWidth(0); // all same
     double qmax = hlist[ih]->GetBinLowEdge(hlist[ih]->GetMaximumBin()) + 0.5*width;
     double qfit=fp[ih]->GetParameter(1); 
     double qfite=fp[ih]->GetParError(1); 
-    printf(" %i qmax %.3f qfit %.3f +\- %.3f \n",ih,qmax,qfit,qfite);
+    printf(" %i max bin %.3f qfit %.3f +/- %.3f \n",ih,qmax,qfit,qfite);
   }
+
+  cout << " // fits " << htag << endl;
+  if(htag.Contains("NoBeam")) {
+      for(int ih=0; ih<NPMT; ++ih ) printf(" fitNoBeam[%i]=  %.3f ;\n",ih,fp[ih]->GetParameter(1));
+  } else {
+      for(int ih=0; ih<NPMT; ++ih ) printf(" fitOff[%i]=  %.3f ;\n",ih,fp[ih]->GetParameter(1));
+  }
+      
 }
 

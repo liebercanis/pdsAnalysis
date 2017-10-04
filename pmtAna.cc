@@ -147,10 +147,8 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
     }
   }
   //gDirectory->ls();
-  
-  //pmtSummary->SetName(Form("summary-%s",TString(tag(0,10)).Data()));
-  //pmtSummary->tag = tag;
-  
+ 
+   
   // loop over entries zero = all 
   UInt_t nLoop = Loop(maxLoop,firstEntry);
   qualitySummary(tag);
@@ -158,6 +156,8 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   outFile->Write();
   printf(" wrote output file %s \n",outFile->GetName());
 
+ // set summary file tag
+  pmtSummary->tag = tag;
   summaryTree->Fill();
   summaryFile->Write();
   printf(" wrote summary file %s \n",summaryFile->GetName());
@@ -469,9 +469,43 @@ Int_t pmtAna::readGainConstants(TString fileName)
   // normalize 
   for(int ipmt=0; ipmt<NPMT; ++ipmt) { gain[ipmt] = rgain[ipmt]/rgain[0];}
   printf(" normalized \n");
-  for(int ipmt=0; ipmt<NPMT; ++ipmt) printf(" %i  %f \n",ipmt,gain[ipmt]); 
+  for(int ipmt=0; ipmt<NPMT; ++ipmt) printf(" %i  %f ; ",ipmt,gain[ipmt]); 
+  printf(" \n");
 
-  printf(" pmt gain\n");
+  Double_t gsumAve[NPMT];
+  gsumAve[0]= 1.000 ;
+  gsumAve[1]= 0.962 ;
+  gsumAve[2]= 1.089 ;
+  gsumAve[3]= 1.106 ;
+  gsumAve[4]= 0.682 ;
+  gsumAve[5]= 0.900 ;
+  gsumAve[6]= 0.973 ;
+  gsumAve[7]= 1.021 ;
+  gsumAve[8]= 0.583 ;
+  gsumAve[9]= 0.623 ;
+  gsumAve[10]= 0.636 ;
+  gsumAve[11]= 0.743 ;
+  gsumAve[12]= 0.609 ;
+  gsumAve[13]= 0.831 ;
+  gsumAve[14]= 0.773 ;
+  gsumAve[15]= 0.954 ;
+  gsumAve[16]= 0.937 ;
+  gsumAve[17]= 0.872 ;
+  gsumAve[18]= 1.225 ;
+  gsumAve[19]= 1.206 ;
+  gsumAve[20]= 0.858 ;
+
+ 
+  printf(" my gains \n");
+
+  for(int ipmt=0; ipmt<NPMT; ++ipmt) {
+    gain[ipmt]=1;
+    if(ipmt==1||ipmt==3||ipmt==5||ipmt==7||ipmt==8||ipmt==9||ipmt==17||ipmt==19) gain[ipmt]=0.5;
+    printf(" %i  %f  ; ",ipmt,gain[ipmt]); 
+  }
+
+  printf(" \n");
+
   in.close();
   return ngains;
 }
@@ -905,13 +939,13 @@ void pmtAna::qualitySummary(TString tag)
       ptstats->SetBorderSize(1);
       ptstats->SetFillColor(0);
       ptstats->SetTextAlign(12);
-	TText *text;// = ptstats->AddText(Form(""));
-	text = ptstats->AddText(Form("Noise  = %0.3f",f1->GetParameter(0)));
-	text = ptstats->AddText(Form("Noise_{#sigma}  = %0.3f",f1->GetParameter(1)));
-	text = ptstats->AddText(Form("A_{noise}  = %0.0f",f1->GetParameter(2)));
-	text = ptstats->AddText(Form("Gain  = %0.3f",f1->GetParameter(3)));
-	text = ptstats->AddText(Form("#sigma  = %0.3f",f1->GetParameter(4)));
-	text = ptstats->AddText(Form("A_{SPE}  = %0.0f",f1->GetParameter(5)));
+      TText *text;// = ptstats->AddText(Form(""));
+      text = ptstats->AddText(Form("Noise  = %0.3f",f1->GetParameter(0)));
+      text = ptstats->AddText(Form("Noise_{#sigma}  = %0.3f",f1->GetParameter(1)));
+      text = ptstats->AddText(Form("A_{noise}  = %0.0f",f1->GetParameter(2)));
+      text = ptstats->AddText(Form("Gain  = %0.3f",f1->GetParameter(3)));
+      text = ptstats->AddText(Form("#sigma  = %0.3f",f1->GetParameter(4)));
+      text = ptstats->AddText(Form("A_{SPE}  = %0.0f",f1->GetParameter(5)));
       //cout<<"666"<<endl;
       ptstats->SetOptStat(0);
       ptstats->SetOptFit(9);
@@ -924,13 +958,10 @@ void pmtAna::qualitySummary(TString tag)
       //cout<<"888"<<endl;
     }
     
+    printf(" \n uncorrected PMT averages \n");
     pmtSummary->print();
     myc1->Print(".pdf");
     myc2->Print(".pdf");
-    printf(" \n uncorrected PMT averages \n");
-    for(Int_t j=0; j<NPMT; ++j) 
-      printf(" ipmt %i norm %i qmax %.2f +/- %.2f sum %.2f +/- %.2f gain %.2f +/- %.2f \n",j,int(normun[j]),yun[j],eyun[j],zun[j],ezun[j],pmtSummary->gain[j],pmtSummary->gain_e[j]);
-
      
     
     TGraphErrors* gr1 = new TGraphErrors(NPMT,x,y,ex,ey);
