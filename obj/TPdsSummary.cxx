@@ -88,14 +88,14 @@ void TPdsSummary::run(Int_t fFirst, Int_t maxFiles)
     printf(" opening pdsNoBeam file %s \n",noBeamFileName.Data());
     noBeamTree->ls();
  
-    TString lowBeamFileName = TString("pdsOutput/pdsNoBeam_") + dirname + fileList[ifile] + TString(".root");
+    TString lowBeamFileName = TString("pdsOutput/pdsNoBeam_") + dirName + fileList[ifile] + TString(".root");
     lowBeamFile = new TFile(lowBeamFileName,"recreate");
     lowBeamFile->cd();
     lowBeamTree = pmt_tree->CloneTree();
     printf(" opening pdsNoBeam file %s \n",lowBeamFileName.Data());
     lowBeamTree->ls();
 
-    TString highBeamFileName = TString("pdsOutput/pdsNoBeam_") + dirname + fileList[ifile] + TString(".root");
+    TString highBeamFileName = TString("pdsOutput/pdsNoBeam_") + dirName + fileList[ifile] + TString(".root");
     highBeamFile = new TFile(highBeamFileName,"recreate");
     highBeamFile->cd();
     highBeamTree = pmt_tree->CloneTree();
