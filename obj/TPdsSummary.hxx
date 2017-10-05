@@ -86,10 +86,16 @@ class TPdsSummary: public TNamed {
     TString fullDirName;
     std::vector<std::string> fileList;
     TTree *pmt_tree;
+    TTree *noBeamTree;
+    TTree *lowBeamTree;
+    TTree *highBeamTree;
     UShort_t digitizer_waveforms[NB][NC][NS];
     TFile *summaryFile;
     TTree *summaryTree;
     TPmtSummary* pmtSummary;
+    TFile *noBeamFile;
+    TFile *lowBeamFile;
+    TFile *highBeamFile;
     Int_t badFiles;
     Int_t goodFiles;
 

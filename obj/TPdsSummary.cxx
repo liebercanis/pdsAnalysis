@@ -70,6 +70,8 @@ void TPdsSummary::run(Int_t fFirst, Int_t maxFiles)
   summaryTree->Branch("pmtSummary",&pmtSummary);
   summaryFile->ls();
 
+
+
   // loop over files
   unsigned ffirst =fFirst;
   unsigned fmax = ffirst+fileList.size();
@@ -77,8 +79,40 @@ void TPdsSummary::run(Int_t fFirst, Int_t maxFiles)
   printf(" now loop over files in %s is %lu reading from %u to %u \n",dirName.Data(),fileList.size(),ffirst,fmax);
   for( unsigned ifile =ffirst ; ifile < fmax ; ++ifile ) {
     printf(" %i %s \n",ifile,fileList[ifile].c_str());
+
+    // open strip output files
+    TString noBeamFileName = TString("pdsOutput/pdsNoBeam_") + dirName + fileList[ifile] + TString(".root");
+    noBeamFile = new TFile(noBeamFileName,"recreate");
+    noBeamFile->cd();
+    noBeamTree = pmt_tree->CloneTree();
+    printf(" opening pdsNoBeam file %s \n",noBeamFileName.Data());
+    noBeamTree->ls();
+ 
+    TString lowBeamFileName = TString("pdsOutput/pdsNoBeam_") + dirname + fileList[ifile] + TString(".root");
+    lowBeamFile = new TFile(lowBeamFileName,"recreate");
+    lowBeamFile->cd();
+    lowBeamTree = pmt_tree->CloneTree();
+    printf(" opening pdsNoBeam file %s \n",lowBeamFileName.Data());
+    lowBeamTree->ls();
+
+    TString highBeamFileName = TString("pdsOutput/pdsNoBeam_") + dirname + fileList[ifile] + TString(".root");
+    highBeamFile = new TFile(highBeamFileName,"recreate");
+    highBeamFile->cd();
+    highBeamTree = pmt_tree->CloneTree();
+    printf(" opening pdsNoBeam file %s \n",highBeamFileName.Data());
+    highBeamTree->ls();
+
+
     readFile(ifile);
     printf(" have written %i bytes \n",summaryTree->FlushBaskets());
+
+    // write and close strip files
+    printf(" stripped file %i,  %s noBeam events %lu lowBeam events %lu highBeam events %lu \n",  ifile, fileList[ifile].c_str(), 
+        noBeamTree->GetEntries(), lowBeamTree->GetEntries(), highBeamTree->GetEntries());
+    noBeamFile->Write(); noBeamFile->Close();
+    lowBeamFile->Write(); lowBeamFile->Close();
+    highBeamFile->Write();highBeamFile->Close();
+
   }
   summaryFile->Write();
   cout<< "  summary tree has   " << summaryTree->GetEntries() << " entries " << endl;
@@ -210,6 +244,11 @@ void TPdsSummary::loop()
     pmt_tree->GetEntry(ientry);
     if(ientry%1000==0) printf(" ..... %lld \n",ientry);
     Int_t trigType = triggerInfo();
+    // output based on trigger type
+    if(trigType==TPmtEvent::TRIG000) noBeamTree->Fill();
+    if(trigType==TPmtEvent::TRIG111) lowBeamTree->Fill();
+    if(trigType==TPmtEvent::TRIG555 || trigType==TPmtEvent::TRIG444 ) highBeamTree->Fill();
+
     for(UInt_t ib=0; ib<NB; ++ib) {
       for(UInt_t ic=0; ic<NC; ++ic) {
           // filter waveforms for stuck bits
