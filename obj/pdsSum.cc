@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
   else dirName = TString("PDS_beamtime_files");
   cout << " \n now creating TPdsSummary with directory " << dirName << " will read first " << ffirst << " max " << fmax << " files " << endl;
   TPdsSummary *psum = new TPdsSummary(dirName);
-  psum->printFiles();
+  //psum->printFiles();
   cout << " now run over files " <<  endl;
   psum->run(ffirst,fmax);
 }

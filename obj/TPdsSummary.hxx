@@ -45,7 +45,7 @@ class TPdsSummary: public TNamed {
     void getTag(std::string fname) { tag = fname.substr( fname.find("_")+1, fname.find(".") -1  - fname.find("_")); return;}
     Int_t getMonth() { return atoi(tag.substr(0,2).c_str()) ;}
     Int_t getDay() { return atoi(tag.substr(3,2).c_str()) ;}
-    Int_t getHour() { return atoi(tag.substr(6,4).c_str()) ;}
+    Int_t getMin() { return atoi(tag.substr(6,4).c_str()) ;}
     Int_t getSegment() { return atoi(tag.substr(11,tag.find(".") -1  - 11).c_str());}
 
     // valid pmt are 0 to 20, RF channels are 21,22,23
@@ -89,7 +89,15 @@ class TPdsSummary: public TNamed {
     TTree *noBeamTree;
     TTree *lowBeamTree;
     TTree *highBeamTree;
+    UInt_t    event;
+    Int_t     compSec;
+    Long64_t  compNs;
+    UInt_t    gpsNs;
+    UInt_t    gpsSec;
+    UShort_t  gpsDay;
+    UShort_t  gpsYear;
     UShort_t digitizer_waveforms[NB][NC][NS];
+    
     TFile *summaryFile;
     TTree *summaryTree;
     TPmtSummary* pmtSummary;
@@ -99,7 +107,7 @@ class TPdsSummary: public TNamed {
     Int_t badFiles;
     Int_t goodFiles;
 
-		ClassDef(TPdsSummary,1)
+		ClassDef(TPdsSummary,2)
 };
 #endif
 

@@ -9,7 +9,7 @@
 
 using namespace std;
 
-// class to store info for the event
+// class to store info for the data file labeld by tag 
 
 class TPmtSummary: public TNamed {
 	public:
@@ -20,7 +20,7 @@ class TPmtSummary: public TNamed {
 		void print();
     Int_t getMonth() { return atoi(tag.substr(0,2).c_str()) ;}
     Int_t getDay() { return atoi(tag.substr(3,2).c_str()) ;}
-    Int_t getHour() { return atoi(tag.substr(6,4).c_str()) ;}
+    Int_t getMin() { return atoi(tag.substr(6,4).c_str()) ;}
     Int_t getSegment() { return atoi(tag.substr(11,tag.find(".") -1  - 11).c_str());}
 		// data elements
     std::string tag;
@@ -40,7 +40,18 @@ class TPmtSummary: public TNamed {
     Int_t norm[NPMT];
     Double_t gain[NPMT];
     Double_t gain_e[NPMT];
-		ClassDef(TPmtSummary,1)
+    // vectors for times
+    std::vector<Int_t>     vtrig;
+    std::vector<UInt_t>    vevent;
+    std::vector<Long64_t>  ventry;
+    std::vector<Int_t>     vcompSec;
+    std::vector<Long64_t>  vcompNs;
+    //std::vector<UInt_t>    vgpsNs;
+    //std::vector<UInt_t>    vgpsSec;
+    //std::vector<UShort_t>  vgpsDay;
+    //std::vector<UShort_t>  vgpsYear;
+
+		ClassDef(TPmtSummary,2)
 };
 #endif
 

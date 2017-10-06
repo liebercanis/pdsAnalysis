@@ -39,7 +39,6 @@ int toPmtNumber(int ib, int ic)
 
 void sum(TString tag= "PDS_beamtime_files")
 {
-   
   //TString inputFileName = TString("../pdsOutput/pdsSummary_")+tag+TString(".root");
   //printf(" opening file %s \n",inputFileName.Data()); 
   //TFile *infile = new TFile(inputFileName);
@@ -55,7 +54,6 @@ void sum(TString tag= "PDS_beamtime_files")
 
   //sumTree = (TTree*) infile->Get("summaryTree");
   Long64_t aSize=0;
-  Double_t dnorm = double(aSize);
   if(sumTree) aSize=sumTree->GetEntries();
   else  printf(" no summaryTree  \n");
   printf(" summaryTree with %i entries \n",int(aSize));
@@ -101,7 +99,7 @@ void sum(TString tag= "PDS_beamtime_files")
     grpeak[ipmt]->SetLineColor(icolor[ipmt]);
     grpeak[ipmt]->SetMarkerSize(0.5);
   }
-  
+
   Double_t qmaxAve[NPMT];
   Double_t qsumAve[NPMT];
   Double_t qcooper[NPMT];
@@ -110,28 +108,34 @@ void sum(TString tag= "PDS_beamtime_files")
     qmaxAve[ipmt]=0; qsumAve[ipmt]=0;
   }
 
-  unsigned norm=0;
-  Int_t amonth=7, aday=31, ahour=1555;
-  double atime = double(ahour)+double(24*aday+24*30*(amonth-7));
+  unsigned qnorm[NPMT];
+  for(int ipmt=0; ipmt<NPMT; ++ipmt) qnorm[ipmt]=0;
+  unsigned late=0;
+  Int_t amonth=7, aday=31, amin=1555;
+  double atime = double(amin)+double(24*aday+24*30*(amonth-7))-60*24*20;
+
   for(unsigned entry =0; entry < aSize; ++entry ) {
     sumTree->GetEntry(entry);
     string tag = pmtSum->tag;
     Int_t month = pmtSum->getMonth();
     Int_t day = pmtSum->getDay();
-    Int_t hour = pmtSum->getHour();
+    Int_t min = pmtSum->getMin();
     Int_t seg = pmtSum->getSegment();
-    double time = double(hour)+double(24*day+24*30*(month-7));
+    double time = double(min)+double(60*24*day+60*24*30*(month-7)) - 60*24*20;
 
     ntTrig->Fill(time,pmtSum->ntrig555,pmtSum->ntrig5xx,pmtSum->ntrig444,pmtSum->ntrig4xx,pmtSum->ntrig111,pmtSum->ntrig1xx,pmtSum->ntrig000,pmtSum->ntrig0xx);
     
-    if(entry%100==0) printf("...entry %u tag %s  month %i day %i hour %i seg %i time %0.f \n",entry,tag.c_str(),month,day,hour,seg,time);
+    if(entry%100==0) printf("...entry %u tag %s  month %i day %i min %i seg %i time %0.f \n",entry,tag.c_str(),month,day,min,seg,time);
     double etime=0;
+    ++late;
     for(int ipmt=0; ipmt<NPMT; ++ipmt) {
       if( TMath::IsNaN(pmtSum->qsum[ipmt])  ) continue;
       if( TMath::IsNaN(pmtSum->qmax[ipmt])  ) continue;
-      ++norm;
-      qmaxAve[ipmt] += pmtSum->qmax[ipmt];
-      qsumAve[ipmt] += pmtSum->qsum[ipmt];
+      if(time>22600) { // average only late runs
+        ++qnorm[ipmt];
+        qmaxAve[ipmt] += pmtSum->qmax[ipmt];
+        qsumAve[ipmt] += pmtSum->qsum[ipmt];
+      }
       //if(time==atime) printf("  asum[%i]=%.0f ; \n",ipmt,qsumAve[ipmt]);
       hSumPeak->Fill(pmtSum->qsum[ipmt],pmtSum->qmax[ipmt]);
       grsum[ipmt]->SetPoint(entry,time,pmtSum->qsum[ipmt]); 
@@ -144,7 +148,7 @@ void sum(TString tag= "PDS_beamtime_files")
   TString can1Name; can1Name.Form("%s-%s",tag.Data(),"sum");
   cout << " making " << can1Name << endl;
   TCanvas *c1 = new TCanvas(can1Name,can1Name);
-  grsum[0]->GetHistogram()->GetXaxis()->SetTitle(" time in hours ");
+  grsum[0]->GetHistogram()->GetXaxis()->SetTitle(" time in mins ");
   grsum[0]->SetTitle("sum charge");
   grsum[0]->Draw("AP");
   for(int ipmt=1; ipmt<NPMT; ++ipmt) grsum[ipmt]->Draw("PSAME");
@@ -152,7 +156,7 @@ void sum(TString tag= "PDS_beamtime_files")
   TString can2Name; can2Name.Form("%s-%s",tag.Data(),"peak");
   cout << " making " << can2Name << endl;
   TCanvas *c2 = new TCanvas(can2Name,can2Name);
-  grpeak[0]->GetHistogram()->GetXaxis()->SetTitle(" time in hours ");
+  grpeak[0]->GetHistogram()->GetXaxis()->SetTitle(" time in mins ");
   grpeak[0]->SetTitle("peak charge");
   grpeak[0]->Draw("AP");
   for(int ipmt=1; ipmt<NPMT; ++ipmt) grpeak[ipmt]->Draw("PSAME");
@@ -160,7 +164,7 @@ void sum(TString tag= "PDS_beamtime_files")
 
   outfile->Write();
 
-  printf(" averages over %u runs \n",norm);
+  printf(" averages over %u runs of %lld total \n",late,aSize);
   TGraph* gSumAve = new TGraph(NPMT);
   TGraph* gMaxAve = new TGraph(NPMT);
   for(int ipmt=1; ipmt<NPMT; ++ipmt) {
@@ -174,8 +178,11 @@ void sum(TString tag= "PDS_beamtime_files")
   gSumAve->SetPoint(0,double(0),qsumAve[0]);
   gMaxAve->SetPoint(0,double(0),qmaxAve[0]);
   
-
+  cout << endl;
  for(int ipmt=0; ipmt<NPMT; ++ipmt) printf(" gsumAve[%i]= %.3f ;\n",ipmt,qsumAve[ipmt]);
+  cout << endl;
+ for(int ipmt=0; ipmt<NPMT; ++ipmt) printf(" gmaxAve[%i]= %.3f ;\n",ipmt,qmaxAve[ipmt]);
+  cout << endl;
   
  qcooper[0]= 1.000000 ;
  qcooper[1]=  1.028461 ;
@@ -350,7 +357,7 @@ void sum(TString tag= "PDS_beamtime_files")
   gMaxAve->SetMarkerSize(1);
   gMaxAve->SetMarkerStyle(22);
   gSumAve->SetTitle("gain");
-  gSumAve->GetHistogram()->SetAxisRange(0,2.0,"Y");
+  gSumAve->GetHistogram()->SetAxisRange(.25,1.75,"Y");
   gSumAve->GetHistogram()->SetTitle("relative gain");
   
 
@@ -365,8 +372,6 @@ void sum(TString tag= "PDS_beamtime_files")
   gfitNoBeam->SetMarkerSize(1.5);
   gfitNoBeam->SetMarkerColor(6);
   gfitNoBeam->SetMarkerStyle(29);
-
-  
   
   gSumAve->Draw("AP");
   gMaxAve->Draw("PSAME");
