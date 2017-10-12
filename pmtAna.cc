@@ -36,7 +36,18 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   TTree *summaryTree = new TTree("summaryTree","summaryTree");
   pmtSummary  = new TPmtSummary();
   summaryTree->Branch("pmtSummary",&pmtSummary);
+  pmtSummary->tag=tag;
   
+  TString gainFileName = TString("pdsOutput/pmtGains_")+tag+ TString(".root");
+  gainFile = new TFile(gainFileName,"recreate");
+  gainFile->cd();
+  printf(" opening summary file %s \n",summaryFileName.Data());
+  TTree *gainsTree = new TTree("gainsTree","gainsTree");
+  pmtGains  = new TPmtGains();
+  gainsTree->Branch("pmtGains",&pmtGains);
+  pmtGains->tag=tag;
+  
+
   // open ouput file and make some histograms
   TString outputFileName = TString("pdsOutput/pmtAna_")+tag+ TString(".root");
   outFile = new TFile(outputFileName,"recreate");
@@ -78,11 +89,11 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
       if(ipmt<0) continue;
       hname.Form("Samples_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form("Samples board%u channel%u pmt%u",ib,ic,ipmt);
-      hSamples[ipmt] = new TH1D(hname,htitle,NS,0,NS);
+      hSamples[ipmt] = new TH1D(hname,htitle,MAXSAMPLES,0,MAXSAMPLES);
       hSamples[ipmt]->SetXTitle(" sample number ");
     }
   }
-  hSamplesSum = new TH1D("SampleSum"," samples summed over PMTs",NS,0,NS);
+  hSamplesSum = new TH1D("SampleSum"," samples summed over PMTs",MAXSAMPLES,0,MAXSAMPLES);
   hSamplesSum->SetXTitle(" sample number ");
 
   for(UInt_t ib=0; ib<NB; ++ib) {
@@ -91,11 +102,11 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
       if(ipmt<0||ipmt>=NPMT) continue;
       hname.Form("SamplesPDS_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form("Samples board%u channel%u pmt%u",ib,ic,ipmt);
-      hSamplesPDS[ipmt] = new TH1D(hname,htitle,NS,0,NS);
+      hSamplesPDS[ipmt] = new TH1D(hname,htitle,MAXSAMPLES,0,MAXSAMPLES);
       hSamplesPDS[ipmt]->SetXTitle(" sample number ");
     }
   }
-  hSamplesPDSSum = new TH1D("SampleSumPDS"," samples summed over PMTs",NS,0,NS);
+  hSamplesPDSSum = new TH1D("SampleSumPDS"," samples summed over PMTs",MAXSAMPLES,0,MAXSAMPLES);
   hSamplesPDSSum->SetXTitle(" sample number ");
   
   
@@ -105,7 +116,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
       if(ipmt<0||ipmt>=NPMT) continue;
       hname.Form("Peaks_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form("Peaks board%u channel%u pmt%u",ib,ic,ipmt);
-      hPeaks[ipmt] = new TH1D(hname,htitle,NS,0,NS);
+      hPeaks[ipmt] = new TH1D(hname,htitle,MAXSAMPLES,0,MAXSAMPLES);
       hPeaks[ipmt]->SetXTitle(" sample number ");
       hPeaks[ipmt]->SetLineColor(kRed);
       hPeaks[ipmt]->SetMarkerColor(kRed);
@@ -122,10 +133,17 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
       hBaseline[ipmt] = new TH1D(hname,htitle,100,-50,50);
       hBaseline[ipmt]->SetXTitle(" baseline fluctuation (ADC counts) ");
 
-      hname.Form("hitQ_b%u_ch%u_pmt%u",ib,ic,ipmt);
+      hname.Form("HitQ_b%u_ch%u_pmt%u",ib,ic,ipmt);
       htitle.Form(" hit charge board%u channel%u pmt %u",ib,ic,ipmt);
-      hHitQ[ipmt] = new TH1D(hname,htitle,25,0,25);
+      hHitQ[ipmt] = new TH1D(hname,htitle,60,0,60);
       hHitQ[ipmt]->SetXTitle(" hit charge in pulse time  (ADC counts) ");
+   
+      hname.Form("RawQ_b%u_ch%u_pmt%u",ib,ic,ipmt);
+      //htitle.Form(" Raw Charge board%u channel%u pmt%u",ib,ic,ipmt);
+      htitle.Form("");
+      hRawQ[ipmt] = new TH1D(hname,htitle,60,0,60);
+      hRawQ[ipmt]->SetXTitle(Form(" Raw Charge [b%u c%u pmt%u] (ADC)",ib,ic,ipmt));
+      hRawQ[ipmt]->SetYTitle(" Entries / [ADC]");
 
       
       hname.Form("QMax_b%u_ch%u_pmt%u",ib,ic,ipmt);
@@ -137,13 +155,6 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
       htitle.Form(" Hits per event c board%u channel%u pmt %u",ib,ic,ipmt);
       hNHits[ipmt] = new TH1D(hname,htitle,20,0,20);
       hNHits[ipmt]->SetXTitle(" number of hits per event ");
-      
-      hname.Form("RawQ_b%u_ch%u_pmt%u",ib,ic,ipmt);
-      //htitle.Form(" Raw Charge board%u channel%u pmt%u",ib,ic,ipmt);
-      htitle.Form("");
-      hQUnPeak[ipmt] = new TH1D(hname,htitle,60,0,60);
-      hQUnPeak[ipmt]->SetXTitle(Form(" Raw Charge [b%u c%u pmt%u] (ADC)",ib,ic,ipmt));
-      hQUnPeak[ipmt]->SetYTitle(" Entries / [ADC]");
     }
   }
   //gDirectory->ls();
@@ -152,15 +163,16 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   // loop over entries zero = all 
   UInt_t nLoop = Loop(maxLoop,firstEntry);
   qualitySummary(tag);
+  gainsTree->Fill();
+  gainFile->Write();
+  summaryTree->Fill();
+  summaryFile->Write();
   
   outFile->Write();
   printf(" wrote output file %s \n",outFile->GetName());
 
- // set summary file tag
-  pmtSummary->tag = tag;
-  summaryTree->Fill();
-  summaryFile->Write();
   printf(" wrote summary file %s \n",summaryFile->GetName());
+  printf(" wrote gains file %s \n",gainFile->GetName());
 
 
   // do some plotting
@@ -289,19 +301,19 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           double sumUn=0;
 
           // Find the sample median and it's "sigma".
-          for (UInt_t is=0; is<NS; ++is) {
+          for (UInt_t is=0; is<MAXSAMPLES; ++is) {
             sdigi.push_back(double(digitizer_waveforms[ib][ic][is])/gain[ipmt]);
             sdigiUn.push_back(double(digitizer_waveforms[ib][ic][is]));
           }
 
           std::sort(sdigi.begin(), sdigi.end());
-          double baselineMedian = sdigi[0.5*double(NS)];
-          double baselineSigma = sdigi[0.16*double(NS)];
+          double baselineMedian = sdigi[0.5*double(MAXSAMPLES)];
+          double baselineSigma = sdigi[0.16*double(MAXSAMPLES)];
           baselineSigma = std::abs(baselineSigma-baselineMedian);
 
           std::sort(sdigiUn.begin(), sdigiUn.end());
-          double baselineMedianUn = sdigiUn[0.5*double(NS)];
-          double baselineSigmaUn = sdigiUn[0.16*double(NS)];
+          double baselineMedianUn = sdigiUn[0.5*double(MAXSAMPLES)];
+          double baselineSigmaUn = sdigiUn[0.16*double(MAXSAMPLES)];
           baselineSigmaUn = std::abs(baselineSigmaUn-baselineMedianUn);
           
 
@@ -320,7 +332,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           double qmax=0;
           UInt_t tmaxUn=0;
           double qmaxUn=0;
-          for(UInt_t is=0 ; is<NS; ++is) {
+          for(UInt_t is=0 ; is<MAXSAMPLES; ++is) {
             double digi = -1.0*(double(digitizer_waveforms[ib][ic][is])/gain[ipmt]-baselineMedian);
             if(digi>qmax) {
               qmax=digi;
@@ -332,7 +344,6 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
               qmaxUn=digiUn;
               tmaxUn=is+1;
             }
-
               
             ddigi.push_back(digi);
             ddigiUn.push_back(digiUn);
@@ -355,10 +366,10 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
             TString hname,htitle;
             hname.Form("Digi_pmt%i_ev%i",ipmt,Int_t(ientry));
             htitle.Form("digi samples pmt %i ev %i",ipmt,Int_t(ientry));
-            TH1D* hDigi = new TH1D(hname,htitle,NS,0,NS);
+            TH1D* hDigi = new TH1D(hname,htitle,MAXSAMPLES,0,MAXSAMPLES);
             hname.Form("FDigi_pmt%i_ev%i",ipmt,Int_t(ientry));
             htitle.Form("filtered digi samples pmt %i ev %i",ipmt,Int_t(ientry));
-            TH1D* hFDigi = new TH1D(hname,htitle,NS,0,NS);
+            TH1D* hFDigi = new TH1D(hname,htitle,MAXSAMPLES,0,MAXSAMPLES);
             for(unsigned idigi=0; idigi<ddigi.size(); ++idigi) {
               hDigi->SetBinContent(int(idigi+1),ddigi[idigi]);
               hFDigi->SetBinContent(int(idigi+1),fdigi[idigi]);
@@ -370,9 +381,9 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           hCounts[ipmt]->Fill(sum);
           // peak finding
           //printf("calling find peaks event %i pmt %i noise %f 68v %f base %f \n",event_number,ipmt,noise,sdigi[0.68*sdigi.size()], baselineMedian);
-          std::vector<Int_t> peakTime = findPeaks(fdigi,7.0*noise,1.0*noise);
+          std::vector<Int_t> peakTime = findPeaks(ddigi,1.0,0.0);
           //std::vector<Int_t> peakTime = findMaxPeak(fdigi,8.0*noise,3.0*noise);
-          Int_t nhits = findHits(ipmt,sum,peakTime,fdigi,ddigiUn,pmtEvent->trigType);
+          Int_t nhits = findHits(ipmt,sum,peakTime,ddigi,ddigiUn,pmtEvent->trigType);
           getTimeToRF();
           // now fill in the time since last RF pulse
           hOcc->Fill(ipmt+1,nhits);
@@ -381,7 +392,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           for (UInt_t ip = 0; ip < peakTime.size(); ip++) {
             Int_t bin = peakTime[ip];
             //printf(" ipmt %i ip %i bin %i v %f \n",ipmt,ip,bin,fdigi[bin]);
-            hPeaks[ipmt]->SetBinContent(bin+1, hPeaks[ipmt]->GetBinContent(bin+1)+fdigi[bin]);
+            hPeaks[ipmt]->SetBinContent(bin+1, hPeaks[ipmt]->GetBinContent(bin+1)+ddigi[bin]);
           }
           hQMax[ipmt]->Fill(qmax);
           ntPmt->Fill(double(pmtEvent->trigType),double(ipmt),tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,baselineMedian-baselineNominal[ipmt],nhits);
@@ -500,7 +511,6 @@ Int_t pmtAna::readGainConstants(TString fileName)
 
   for(int ipmt=0; ipmt<NPMT; ++ipmt) {
     gain[ipmt]=1;
-    if(ipmt==1||ipmt==3||ipmt==5||ipmt==7||ipmt==8||ipmt==9||ipmt==17||ipmt==19) gain[ipmt]=0.5;
     printf(" %i  %f  ; ",ipmt,gain[ipmt]); 
   }
 
@@ -518,13 +528,13 @@ std::vector<Int_t> pmtAna::findRFTimes(int ipmt, double& step)
 
   // find baseline
   std::vector<UShort_t> udigi; 
-  for (UInt_t is=0; is<NS; ++is) udigi.push_back(digitizer_waveforms[ib][ic][is]);
+  for (UInt_t is=0; is<MAXSAMPLES; ++is) udigi.push_back(digitizer_waveforms[ib][ic][is]);
   std::sort(udigi.begin(), udigi.end());
-  UShort_t baseline = udigi[0.5*double(NS)];
+  UShort_t baseline = udigi[0.5*double(MAXSAMPLES)];
   
   // looking for negative values.  
   UShort_t digiMin=MAXADC;
-  for (UInt_t is=0; is<NS; ++is) {
+  for (UInt_t is=0; is<MAXSAMPLES; ++is) {
     digitizer_waveforms[ib][ic][is]=TMath::Min( baseline , digitizer_waveforms[ib][ic][is]);
     if(digitizer_waveforms[ib][ic][is]<digiMin) digiMin=digitizer_waveforms[ib][ic][is];
   }
@@ -534,9 +544,8 @@ std::vector<Int_t> pmtAna::findRFTimes(int ipmt, double& step)
   if(step>-500) return rftimes;
   // pick off start of rising edge
   bool isRF=false;
-  for (UInt_t is=0; is<NS; ++is){
+  for (UInt_t is=0; is<MAXSAMPLES; ++is){
     double digi = double(digitizer_waveforms[ib][ic][is]) - double(baseline);
-    //printf(" is %i digi %f,%f thresh %f base %f \n",is,double(digitizer_waveforms[ib][ic][is]),digi,0.75*step,double(baseline));
     //histoDraw[iB][iC]->Fill(iS+0.5, ((1.*waveforms[iB][iC][iS]-baseline)*offsetstepADC/(1.*ADCrange+1.)+offset) );
     //int ADCrange = 4095;
     //offsetstepADC = 50.
@@ -576,12 +585,12 @@ std::vector<Int_t> pmtAna::findMaxPeak(std::vector<Double_t> v, Double_t thresho
   // consider this a "seed" and find full hit
   klow=imax;
   for(Int_t k=imax-1; k>=max(0,imax-maxHalfLength); --k) {
-    if(v[k]<sthreshold) break;
+    if(v[k]<=sthreshold) break;
     klow=k;
   }
   khigh=imax;
   for(Int_t k=imax+1; k<min(imax+maxHalfLength,vsize); ++k) {
-    if(v[k]<sthreshold) break;
+    if(v[k]<=sthreshold) break;
     khigh=k;
   }
   kover = khigh-klow+1;
@@ -607,7 +616,7 @@ std::vector<Int_t> pmtAna::findPeaks(std::vector<Double_t> v, Double_t threshold
   Int_t vsize = Int_t(v.size());
 
   //printf(" findPeaks \n");
-  for( Int_t ibin=0; ibin<= vsize; ++ibin ) {
+  for( Int_t ibin=0; ibin< vsize; ++ibin ) {
     if( v[ibin]>threshold) {// starting possible new hit
       // consider this a "seed" and find full hit
       klow=ibin;
@@ -622,10 +631,15 @@ std::vector<Int_t> pmtAna::findPeaks(std::vector<Double_t> v, Double_t threshold
       }
       kover = khigh-klow+1;
       // found good pulse
-      if(kover>minLength) { 
-        for(Int_t k=klow ; k<= khigh; ++k) peakTime.push_back(k);
-        //printf(" peakTime  sthreshod %f ibin %i klow %i khigh %i vlow-1 %f vlow %f vibin %f vigh %f vigh+1 %f kover %i.... \n ",
-          //  sthreshold,ibin,klow,khigh,v[klow-1],v[klow],v[ibin],v[khigh],v[khigh+1],kover);
+      if(kover>minLength) {
+        double qsum=0;
+        for(Int_t k=klow ; k<= khigh; ++k) {
+          peakTime.push_back(k);
+          qsum +=v[k];
+        }
+        //printf(" peakTime  qsum %f sthreshod %f ibin %i klow %i khigh %i ", qsum,sthreshold,ibin,klow,khigh);
+        //for(Int_t k=klow ; k<= khigh; ++k) printf(" v[%i]=%f ",k,v[k]);
+        //printf("\n");
       }
       // skip to end of sthreshold search 
       ibin=khigh;
@@ -652,10 +666,11 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     if(peakTime[it]-peakTime[it-1]!=1||(it==1&&hitTime.size()>=minLength)) makeHit=true;
 
     if(makeHit) {
-      //printf(" saving list %i size %i \n",hitList.size(),hitTime.size());
+      hitTime.push_back(peakTime[it]);
       hitList.push_back(hitTime);
+      //printf(" saving list %i size %i \n",hitList.size(),hitTime.size());
       if(hitTime.size()<minLength) printf(" WARNING:: saving list %zu size %zu \n",hitList.size(),hitTime.size());
-      //for(UInt_t ih=0; ih<hitTime.size(); ++ih) printf(" \t\t %i t= %i \n",ih,hitTime[ih]);
+      //for(UInt_t ih=0; ih<hitTime.size(); ++ih) printf(" \t\t %i t= %i digi %f \n",ih,hitTime[ih],ddigi[hitTime[ih]]);
       hitTime.clear();
       continue;
     }
@@ -676,6 +691,7 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     Double_t qUnpeak=0;
     for(UInt_t ih=0; ih<hitTime.size(); ++ih) {
       //printf("  ih = %i time  %i ADC %f XXX ",ih,hitTime[ih],ddigi[hitTime[ih]]);
+      phit.tsample.push_back(hitTime[ih]);	
       phit.qsample.push_back(ddigi[hitTime[ih]]);	
       if(ddigi[hitTime[ih]]>qpeak) {
         peakt=hitTime[ih];
@@ -713,8 +729,10 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     // time past latest RF pulse
     Int_t rft = -99;
     //if(rfTime22.size()>0) rft=peakt%rfTime22[0];
-    if(type==TPmtEvent::TRIG000) hQUnPeak[ipmt]->Fill(qUnpeak);
+    if(pmtEvent->trigType==TPmtEvent::TRIG000)  hRawQ[ipmt]->Fill(qUnpeak); 
+      // hRawQ[ipmt]->Fill(qUnhit);
     ntHit->Fill(ipmt,sum,peakt,rft,length,qpeak,qUnpeak,qhit,qUnhit,phit.fwhm,phit.ratio);
+    if(qUnpeak<1) phit.print();
     hHitQ[ipmt]->Fill(qhit);
     bool bad=false;
     for(UInt_t ih=0; ih<phit.qsample.size(); ++ih) if(phit.qsample[ih]<=0) bad=true;
@@ -725,10 +743,14 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     //phit.print();
     /* error if qhit < 0! */
     if(phit.qhit<0) { 
-      printf("\n\t !!pmtAna::findHits WARNING negative charge hit!! qhit %f \n",phit.qhit) ; phit.print(); }
+      printf("\n\t !!pmtAna::findHits WARNING negative charge qhit!! qhit %f \n",phit.qhit) ; phit.print(); }
+    if(phit.qUnhit<0) { 
+      printf("\n\t !!pmtAna::findHits WARNING negative charge qUnhit!! qUnhit %f \n",phit.qUnhit) ; phit.print(); }
+    
     pmtEvent->hit.push_back(phit);
     ++nhits;
   }
+  //printf(" findHits found %i \n",nhits);
   return  nhits;
 }
 
@@ -905,9 +927,9 @@ void pmtAna::qualitySummary(TString tag)
     for (int i=0;i<21;i++)
     {
       //cout<<"111"<<endl;
-      binmax = hQUnPeak[i]->GetMaximumBin();
+      binmax = hRawQ[i]->GetMaximumBin();
       double fbinmax = double(binmax);
-      histmax = hQUnPeak[i]->GetBinContent(fbinmax);
+      histmax = hRawQ[i]->GetBinContent(fbinmax);
       //cout<<"222"<<endl;
       TF1* f2 = new TF1("f2","[2]*exp(-(x-[0])*(x-[0])/(2*[1]*[1]))+[5]*exp(-(x-[3])*(x-[3])/(2*[4]*[4]))",0,35);
       double par[6]={fbinmax,fbinmax/4.,histmax,15,15/2.,histmax/500.};
@@ -919,20 +941,23 @@ void pmtAna::qualitySummary(TString tag)
       //cout<<"333"<<endl;
       if(i<12)myc1->cd(i+1);
       else    myc2->cd(i-11);
-      hQUnPeak[i]->Draw();
-      hQUnPeak[i]->Fit("f2","R");
+      hRawQ[i]->Draw();
+      hRawQ[i]->Fit("f2","R");
       //cout<<"444"<<endl;
       TF1* f1 = new TF1("f1","[2]*exp(-(x-[0])*(x-[0])/(2*[1]*[1]))+[5]*exp(-(x-[3])*(x-[3])/(2*[4]*[4]))",0,f2->GetParameter(3)+2*f2->GetParameter(4));
       double par1[6]={f2->GetParameter(0),f2->GetParameter(1),f2->GetParameter(2),f2->GetParameter(3),f2->GetParameter(4),f2->GetParameter(5)};
       f1->SetParLimits(4,5,10);
       f1->SetParameters(par1);
       f1->SetLineColor(2);
-      hQUnPeak[i]->Fit("f1","R");
-      hQUnPeak[i]->SetAxisRange(0,60);
+      hRawQ[i]->Fit("f1","R");
+      hRawQ[i]->SetAxisRange(0,60);
       //gain[i]=f1->GetParameter(3);
       //width[i]=f1->GetParameter(4);
       pmtSummary->gain[i]=f1->GetParameter(3);
       pmtSummary->gain_e[i]=f1->GetParError(3);
+      pmtGains->gain[i]=f1->GetParameter(3);
+      pmtGains->egain[i]=f1->GetParError(3);
+      
       //cout<<"555"<<endl;
       TPaveStats *ptstats = new TPaveStats(0.65,0.5, 0.95,0.95,"brNDC");
       ptstats->SetName("stats");
@@ -958,8 +983,6 @@ void pmtAna::qualitySummary(TString tag)
       //cout<<"888"<<endl;
     }
     
-    printf(" \n uncorrected PMT averages \n");
-    pmtSummary->print();
     myc1->Print(".pdf");
     myc2->Print(".pdf");
      
@@ -1000,6 +1023,8 @@ void pmtAna::qualitySummary(TString tag)
     c2->Print(".pdf");
     outFile->Append(gr2);
     outFile->Append(grUn2);
+    pmtGains->print();
+    pmtSummary->print();
 }
 
 

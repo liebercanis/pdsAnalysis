@@ -14,8 +14,8 @@
 using namespace TMath;
 TString htag;
 std::vector<TH1D*> hlist;
-static double xmax=20;
-static double xmin=0;
+static double xmax=100;
+static double xmin=5;
 static double nsum;
 // single polya
 static double fpolya(double *x, double *par)
@@ -55,8 +55,8 @@ void reading(TDirectory *fdir)
   TObject *obj=NULL;
   TKey* key;
   TIter nextkey(fdir->GetListOfKeys());
-  //htag = TString("QhitNoBeam");
-  htag = TString("QhitOff");
+  htag = TString("QhitNoBeam");
+  //htag = TString("QhitOff");
   while ( (key = (TKey*)nextkey()) )  {
     fdir->cd();
     obj = key->ReadObj();
@@ -77,29 +77,35 @@ void fPolya(TString tag="07-31-1555_0")
   reading(infile);
   for(UInt_t ih=0; ih<hlist.size(); ++ih) printf(" %i %s \n",ih,hlist[ih]->GetName());
 
-  float en=10;
-  float qn=2;
+  float en=2;
+  float qn=40;
 
   TF1 *fp[NPMT];
   for(int i=0; i<NPMT; ++i ) {
+    //fp[i] = new TF1(Form("poya-%i",i),fpolya,xmin,xmax,3);
     fp[i] = new TF1(Form("poyaE-%i",i),fpolyaE,xmin,xmax,5);
     fp[i]->SetNpx(1000); // numb points for function
     fp[i]->SetParName(0,"primary charge en");
     fp[i]->SetParName(1,"gain Qn");
+    fp[i]->SetParName(2,"norm");
+    //fp[i]->SetParameter(0,en);
+    //fp[i]->SetParameter(1,qn);
+    //fp[i]->SetParameter(2,1);
     fp[i]->SetParName(2,"exp const");
     fp[i]->SetParName(3,"sig frac");
     fp[i]->SetParName(4,"norm");
     fp[i]->SetParameter(0,en);
     fp[i]->SetParameter(1,qn);
-    fp[i]->SetParameter(2,10);
-    fp[i]->FixParameter(3,1.0);
+    fp[i]->SetParameter(2,1);
+    fp[i]->SetParameter(3,.1);
     fp[i]->SetParameter(4,1.0);
     fp[i]->SetLineColor(kRed);
   }
   TCanvas *cpolyaE = new TCanvas("polyaE","polyaE");
-  fp[0]->Print();
-  TCanvas *cpolya = new TCanvas("polya","polya");
   fp[0]->Draw();
+  fp[0]->Print();
+  return;
+  //TCanvas *cpolya = new TCanvas("polya","polya");
   double epar=fp[0]->GetParameter(0); 
   double qpar=fp[0]->GetParameter(1); 
   double pnorm = Gamma(epar,xmax/qpar*epar)-Gamma(epar,xmin/qpar*epar); // from lower limit of xmin

@@ -207,111 +207,88 @@ void sum(TString tag= "PDS_beamtime_files")
  qcooper[20] = 0.776326 ;
 
 
-  Double_t mean[NPMT];
+  Double_t gain[NPMT];
+  //PMT averages thrushold 1 side 0
+ gain[0]=14.234858; 
+ gain[1]=17.412120 ;
+ gain[2]=14.131400 ;
+ gain[3]=15.326554 ;
+ gain[4]=20.247572 ;
+ gain[5]=18.639789 ;
+ gain[6]=13.448876 ;
+ gain[7]=16.289118 ;
+ gain[8]=14.963304 ;
+ gain[9]=14.884147 ;
+ gain[10]=14.343309 ;
+ gain[11]=13.432883 ;
+ gain[12]=10.920633 ;
+ gain[13]=10.440021 ;
+ gain[14]=11.908392 ;
+ gain[15]=13.387776 ;
+ gain[16]=12.343357 ;
+ gain[17]=11.165986 ;
+ gain[18]=17.630539 ;
+ gain[19]=17.289387 ;
+ gain[20]=14.914158 ;
 
-  mean[0]=3.840878 ; 
-  mean[1]=2.986571 ; 
-  mean[2]=3.334651 ; 
-  mean[3]=3.234994 ; 
-  mean[4]=3.124421 ; 
-  mean[5]=3.406811 ; 
-  mean[6]=2.704257 ; 
-  mean[7]=3.564039 ; 
-  mean[8]=3.372040 ; 
-  mean[9]=3.937634 ; 
-  mean[10]=3.797565 ; 
-  mean[11]=4.234440 ; 
-  mean[12]=3.897901 ; 
-  mean[13]=3.996275 ; 
-  mean[14]=3.471692 ; 
-  mean[15]=4.167746 ; 
-  mean[16]=3.513075 ; 
-  mean[17]=3.427285 ; 
-  mean[18]=3.561007 ; 
-  mean[19]=3.272667 ; 
-  mean[20]=3.924667 ; 
+ 
+  for(int ipmt=1; ipmt<NPMT; ++ipmt) gain[ipmt] /= gain[0];
+  gain[0]=1;
 
-  for(int ipmt=1; ipmt<NPMT; ++ipmt) mean[ipmt] /= mean[0];
-  mean[0]=1;
-
-  Double_t asum[NPMT];
-
-  asum[0]=2365500 ; 
-  asum[1]=2264227 ; 
-  asum[2]=2575016 ; 
-  asum[3]=2614957 ; 
-  asum[4]=1588514 ; 
-  asum[5]=2114388 ; 
-  asum[6]=2283447 ; 
-  asum[7]=2416328 ; 
-  asum[8]=1359574 ; 
-  asum[9]=1435025 ; 
-  asum[10]=1477013 ; 
-  asum[11]=1754151 ; 
-  asum[12]=1422394 ; 
-  asum[13]=1936981 ; 
-  asum[14]=1812810 ; 
-  asum[15]=2248298 ; 
-  asum[16]=2182574 ; 
-  asum[17]=2035239 ; 
-  asum[18]=2892739 ; 
-  asum[19]=2859542 ; 
-  asum[20]=2015205 ; 
-
- for(int ipmt=1; ipmt<NPMT; ++ipmt) asum[ipmt] /= asum[0];
-  asum[0]=1;
-
-  double fitOff[NPMT]; 
+   double fitOff[NPMT]; 
    // fit to QhitOff with ZERO gain
   // fits QhitOff
- fitOff[0]=  5.930 ;
- fitOff[1]=  7.187 ;
- fitOff[2]=  4.572 ;
- fitOff[3]=  8.728 ;
- fitOff[4]=  3.866 ;
- fitOff[5]=  8.443 ;
- fitOff[6]=  3.891 ;
- fitOff[7]=  9.556 ;
- fitOff[8]=  6.472 ;
- fitOff[9]=  8.277 ;
- fitOff[10]=  4.880 ;
- fitOff[11]=  4.970 ;
- fitOff[12]=  3.384 ;
- fitOff[13]=  5.789 ;
- fitOff[14]=  3.758 ;
- fitOff[15]=  6.147 ;
- fitOff[16]=  5.535 ;
- fitOff[17]=  8.462 ;
- fitOff[18]=  5.826 ;
- fitOff[19]=  9.195 ;
- fitOff[20]=  5.694 ;
-
+  //
+  //
+// fits QhitOff
+ fitOff[0]=  46.216 ;
+ fitOff[1]=  46.741 ;
+ fitOff[2]=  43.052 ;
+ fitOff[3]=  40.486 ;
+ fitOff[4]=  45.727 ;
+ fitOff[5]=  44.279 ;
+ fitOff[6]=  37.363 ;
+ fitOff[7]=  43.323 ;
+ fitOff[8]=  39.452 ;
+ fitOff[9]=  36.738 ;
+ fitOff[10]=  36.328 ;
+ fitOff[11]=  37.600 ;
+ fitOff[12]=  29.199 ;
+ fitOff[13]=  28.911 ;
+ fitOff[14]=  28.590 ;
+ fitOff[15]=  40.030 ;
+ fitOff[16]=  30.553 ;
+ fitOff[17]=  30.273 ;
+ fitOff[18]=  50.722 ;
+ fitOff[19]=  50.168 ;
+ fitOff[20]=  36.464 ;
+ 
  double fitNoBeam[NPMT]; 
  // fit to QhitNoBeam with trigger000 and ZERO gain
 // fits QhitNoBeam
- fitNoBeam[0]=  5.969 ;
- fitNoBeam[1]=  7.237 ;
- fitNoBeam[2]=  4.597 ;
- fitNoBeam[3]=  8.709 ;
- fitNoBeam[4]=  3.839 ;
- fitNoBeam[5]=  8.466 ;
- fitNoBeam[6]=  3.809 ;
- fitNoBeam[7]=  9.602 ;
- fitNoBeam[8]=  6.518 ;
- fitNoBeam[9]=  8.196 ;
- fitNoBeam[10]=  4.912 ;
- fitNoBeam[11]=  4.949 ;
- fitNoBeam[12]=  3.369 ;
- fitNoBeam[13]=  5.771 ;
- fitNoBeam[14]=  3.753 ;
- fitNoBeam[15]=  6.122 ;
- fitNoBeam[16]=  5.651 ;
- fitNoBeam[17]=  8.491 ;
- fitNoBeam[18]=  5.802 ;
- fitNoBeam[19]=  9.217 ;
- fitNoBeam[20]=  5.652 ;
-
-
+ 
+// fits QhitNoBeam
+ fitNoBeam[0]=  45.699 ;
+ fitNoBeam[1]=  46.325 ;
+ fitNoBeam[2]=  42.689 ;
+ fitNoBeam[3]=  39.519 ;
+ fitNoBeam[4]=  45.633 ;
+ fitNoBeam[5]=  44.245 ;
+ fitNoBeam[6]=  36.687 ;
+ fitNoBeam[7]=  42.372 ;
+ fitNoBeam[8]=  38.983 ;
+ fitNoBeam[9]=  36.003 ;
+ fitNoBeam[10]=  36.028 ;
+ fitNoBeam[11]=  36.485 ;
+ fitNoBeam[12]=  28.265 ;
+ fitNoBeam[13]=  28.211 ;
+ fitNoBeam[14]=  28.074 ;
+ fitNoBeam[15]=  39.351 ;
+ fitNoBeam[16]=  30.212 ;
+ fitNoBeam[17]=  29.326 ;
+ fitNoBeam[18]=  50.523 ;
+ fitNoBeam[19]=  49.844 ;
+ fitNoBeam[20]=  35.698 ;
 
   for(int ipmt=1; ipmt<NPMT; ++ipmt) fitOff[ipmt] /= fitOff[0];
   fitOff[0]=1;
@@ -328,9 +305,9 @@ void sum(TString tag= "PDS_beamtime_files")
  }
  
  
-  TGraph* gasum = new TGraph(NPMT);
+  TGraph* ggain = new TGraph(NPMT);
   for(int ipmt=0; ipmt<NPMT; ++ipmt) {
-    gasum->SetPoint(ipmt,double(ipmt),asum[ipmt]);
+    ggain->SetPoint(ipmt,double(ipmt),gain[ipmt]);
   }
  
 
@@ -356,9 +333,9 @@ void sum(TString tag= "PDS_beamtime_files")
   gSumAve->SetMarkerStyle(21);
   gMaxAve->SetMarkerSize(1);
   gMaxAve->SetMarkerStyle(22);
-  gSumAve->SetTitle("gain");
-  gSumAve->GetHistogram()->SetAxisRange(.25,1.75,"Y");
-  gSumAve->GetHistogram()->SetTitle("relative gain");
+  gcooper->SetTitle("gain");
+  gcooper->GetHistogram()->SetAxisRange(.5,1.2,"Y");
+  gcooper->GetHistogram()->SetTitle("relative gain");
   
 
   gcooper->SetMarkerSize(1);
@@ -366,17 +343,23 @@ void sum(TString tag= "PDS_beamtime_files")
   gcooper->SetMarkerStyle(23);
 
   gfitOff->SetMarkerSize(1.3);
-  gfitOff->SetMarkerColor(kGreen);
-  gfitOff->SetMarkerStyle(20);
+  gfitOff->SetMarkerColor(kBlack);
+  gfitOff->SetMarkerStyle(4);
 
   gfitNoBeam->SetMarkerSize(1.5);
   gfitNoBeam->SetMarkerColor(6);
+  gfitNoBeam->SetMarkerStyle(28);
+
+  gfitNoBeam->SetMarkerSize(1.5);
+  gfitNoBeam->SetMarkerColor(kGreen);
   gfitNoBeam->SetMarkerStyle(29);
   
-  gSumAve->Draw("AP");
-  gMaxAve->Draw("PSAME");
-  gcooper->Draw("PSAME");
+  
+  //gSumAve->Draw("AP");
+  //gMaxAve->Draw("PSAME");
+  gcooper->Draw("AP");
   gfitOff->Draw("PSAME");
   gfitNoBeam->Draw("PSAME");
+  ggain->Draw("PSAME");
   
 }

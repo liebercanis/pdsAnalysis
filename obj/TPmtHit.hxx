@@ -37,6 +37,7 @@ class TPmtHit: public TNamed {
     Double_t offset;
 
     Int_t  nsamples;
+		std::vector<Int_t>  tsample;		 
 		std::vector<Double_t>  qsample;		 
 		ClassDef(TPmtHit,2)
 };

@@ -15,6 +15,7 @@
 
 #include "TPmtEvent.hxx"
 #include "TPmtSummary.hxx"
+#include "TPmtGains.hxx"
 
 #include <TROOT.h>
 #include <TVirtualFFT.h>
@@ -37,9 +38,9 @@ typedef std::complex<double> Complex;
 class pmtAna {
 public :
   enum {MAXSAMPLES=2100};
-  enum {NB=3,NCPMT=7,NC=NCPMT+1,NS=MAXSAMPLES};
-  enum {NPMT=NB*NCPMT};
+  enum {NB=3,NCPMT=7,NC=NCPMT+1};
   enum {NALLCH=NB*NC};
+  enum {NPMT=NCPMT*NB};
   enum {MAXADC=4095};
   //peak finding
   enum {minLength=3,maxHalfLength=100};
@@ -60,7 +61,7 @@ public :
    UInt_t          digitizer_chMask[NB][NC];
    UInt_t          digitizer_evNum[NB];
    UInt_t          digitizer_time[NB];
-   UShort_t        digitizer_waveforms[NB][NC][NS];
+   UShort_t        digitizer_waveforms[NB][NC][MAXSAMPLES];
    UInt_t          nDigitizers;
    UInt_t          nChannels;
    UInt_t          nSamples;
@@ -105,6 +106,9 @@ public :
    TFile* outFile;
    TPmtSummary *pmtSummary;
    TFile *summaryFile;
+   TPmtGains *pmtGains;
+   TFile *gainFile;
+   
    
 
    // get trigger type 
@@ -150,6 +154,7 @@ public :
 
    Double_t baselineNominal[NPMT];
    Double_t gain[NPMT]; //Q = ADC/gain
+   Double_t egain[NPMT]; //Q = ADC/gain
    TNtuple *ntPmt;
    TNtuple *ntDigi;
    TNtuple *ntHit;
@@ -178,7 +183,7 @@ public :
    TH1D* hHitQ[NPMT];
    TH1D* hNHits[NPMT];
    TH1D* hQMax[NPMT];
-   TH1D* hQUnPeak[NPMT];
+   TH1D* hRawQ[NPMT];
    
    TH1D* hCounts[NPMT];
    TH1D* hBaseline[NPMT];
