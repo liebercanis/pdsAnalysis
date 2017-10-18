@@ -178,11 +178,6 @@ void sum(TString tag= "PDS_beamtime_files")
   gSumAve->SetPoint(0,double(0),qsumAve[0]);
   gMaxAve->SetPoint(0,double(0),qmaxAve[0]);
   
-  cout << endl;
- for(int ipmt=0; ipmt<NPMT; ++ipmt) printf(" gsumAve[%i]= %.3f ;\n",ipmt,qsumAve[ipmt]);
-  cout << endl;
- for(int ipmt=0; ipmt<NPMT; ++ipmt) printf(" gmaxAve[%i]= %.3f ;\n",ipmt,qmaxAve[ipmt]);
-  cout << endl;
   
  qcooper[0]= 1.000000 ;
  qcooper[1]=  1.028461 ;
@@ -298,7 +293,44 @@ void sum(TString tag= "PDS_beamtime_files")
   fitNoBeam[0]=1;
 
 
+ Double_t fitRaw[NPMT];
+ Double_t fitRawE[NPMT];
 
+ fitRaw[0]=  16.585 ; fitRawE[0]= 0.067 ;
+ fitRaw[1]=  19.137 ; fitRawE[1]= 0.066 ;
+ fitRaw[2]=  16.014 ; fitRawE[2]= 0.071 ;
+ fitRaw[3]=  17.370 ; fitRawE[3]= 0.080 ;
+ fitRaw[4]=  21.603 ; fitRawE[4]= 0.093 ;
+ fitRaw[5]=  20.474 ; fitRawE[5]= 0.102 ;
+ fitRaw[6]=  14.843 ; fitRawE[6]= 0.051 ;
+ fitRaw[7]=  19.574 ; fitRawE[7]= 0.121 ;
+ fitRaw[8]=  17.317 ; fitRawE[8]= 0.109 ;
+ fitRaw[9]=  16.498 ; fitRawE[9]= 0.084 ;
+ fitRaw[10]=  15.760 ; fitRawE[10]= 0.077 ;
+ fitRaw[11]=  15.610 ; fitRawE[11]= 0.075 ;
+ fitRaw[12]=  12.375 ; fitRawE[12]= 0.075 ;
+ fitRaw[13]=  12.508 ; fitRawE[13]= 0.077 ;
+ fitRaw[14]=  13.323 ; fitRawE[14]= 0.074 ;
+ fitRaw[15]=  15.080 ; fitRawE[15]= 0.056 ;
+ fitRaw[16]=  13.809 ; fitRawE[16]= 0.076 ;
+ fitRaw[17]=  13.593 ; fitRawE[17]= 0.146 ;
+ fitRaw[18]=  19.926 ; fitRawE[18]= 0.068 ;
+ fitRaw[19]=  19.017 ; fitRawE[19]= 0.062 ;
+ fitRaw[20]=  16.804 ; fitRawE[20]= 0.088 ;
+
+  for(int ipmt=1; ipmt<NPMT; ++ipmt) fitRaw[ipmt] /= fitRaw[0];
+  fitRaw[0]=1;
+
+
+
+  cout << endl;
+ for(int ipmt=0; ipmt<NPMT; ++ipmt) printf(" gain[%i]= %.3f ;\n",ipmt,gain[ipmt]);
+  cout << endl;
+ for(int ipmt=0; ipmt<NPMT; ++ipmt) printf(" fitRaw[%i]= %.3f ;\n",ipmt,fitRaw[ipmt]);
+  cout << endl;
+ 
+  
+  
  TGraph* gcooper = new TGraph(NPMT);
  for(int ipmt=0; ipmt<NPMT; ++ipmt) {
    gcooper->SetPoint(ipmt,double(ipmt),qcooper[ipmt]);
@@ -320,21 +352,27 @@ void sum(TString tag= "PDS_beamtime_files")
   for(int ipmt=0; ipmt<NPMT; ++ipmt) {
     gfitNoBeam->SetPoint(ipmt,double(ipmt),fitNoBeam[ipmt]);
   }
+
+  TGraph* gfitRaw = new TGraph(NPMT);
+  for(int ipmt=0; ipmt<NPMT; ++ipmt) {
+    gfitRaw->SetPoint(ipmt,double(ipmt),fitRaw[ipmt]);
+  }
+ 
  
 
   TString can3Name; can3Name.Form("%s-%s",tag.Data(),"relative-gain");
   //gSumAve->Print();
   cout << " making " << can3Name << endl;
   TCanvas *c3 = new TCanvas(can3Name,can3Name);
-  gSumAve->GetHistogram()->GetXaxis()->SetTitle(" sum (blue squ) max (black tri) rc (red tri) fit off (gr circ)  fit nobeam (purp star)   : ipmt ");
-  gSumAve->GetHistogram()->GetYaxis()->SetTitle(" relative gain ");
+  gcooper->GetHistogram()->GetXaxis()->SetTitle(" pmt number ");
+  gcooper->GetHistogram()->GetYaxis()->SetTitle(" relative gain ");
   gSumAve->SetMarkerSize(1);
   gSumAve->SetMarkerColor(kBlue);
   gSumAve->SetMarkerStyle(21);
   gMaxAve->SetMarkerSize(1);
   gMaxAve->SetMarkerStyle(22);
   gcooper->SetTitle("gain");
-  gcooper->GetHistogram()->SetAxisRange(.5,1.2,"Y");
+  gcooper->GetHistogram()->SetAxisRange(.5,1.5,"Y");
   gcooper->GetHistogram()->SetTitle("relative gain");
   
 
@@ -342,9 +380,9 @@ void sum(TString tag= "PDS_beamtime_files")
   gcooper->SetMarkerColor(kRed);
   gcooper->SetMarkerStyle(23);
 
-  gfitOff->SetMarkerSize(1.3);
-  gfitOff->SetMarkerColor(kBlack);
-  gfitOff->SetMarkerStyle(4);
+  ggain->SetMarkerSize(1.3);
+  ggain->SetMarkerColor(kBlack);
+  ggain->SetMarkerStyle(4);
 
   gfitNoBeam->SetMarkerSize(1.5);
   gfitNoBeam->SetMarkerColor(6);
@@ -354,12 +392,16 @@ void sum(TString tag= "PDS_beamtime_files")
   gfitNoBeam->SetMarkerColor(kGreen);
   gfitNoBeam->SetMarkerStyle(29);
   
+  gfitRaw->SetMarkerSize(1.5);
+  gfitRaw->SetMarkerColor(kGreen);
+  gfitRaw->SetMarkerStyle(29);
+
   
   //gSumAve->Draw("AP");
   //gMaxAve->Draw("PSAME");
   gcooper->Draw("AP");
-  gfitOff->Draw("PSAME");
-  gfitNoBeam->Draw("PSAME");
+  //gfitOff->Draw("PSAME");
+  gfitRaw->Draw("PSAME");
   ggain->Draw("PSAME");
-  
+    
 }
