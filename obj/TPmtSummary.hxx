@@ -42,10 +42,13 @@ class TPmtSummary: public TNamed {
     Double_t gain_e[NPMT];
     // vectors for times
     std::vector<Int_t>     vtrig;
+    std::vector<Int_t>     vrf1;
+    std::vector<Int_t>     vrf2;
+    std::vector<Int_t>     vrf3;
     std::vector<UInt_t>    vevent;
     std::vector<Long64_t>  ventry;
     std::vector<Int_t>     vcompSec;
-    std::vector<Long64_t>  vcompNs;
+    std::vector<Long64_t>  vcompNano;
     //std::vector<UInt_t>    vgpsNs;
     //std::vector<UInt_t>    vgpsSec;
     //std::vector<UShort_t>  vgpsDay;

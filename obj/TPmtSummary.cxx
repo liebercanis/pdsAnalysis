@@ -16,12 +16,11 @@ void TPmtSummary::clear()
   vevent.clear();;
   ventry.clear();;
   vcompSec.clear();;
-  vcompNs.clear();;
-  //vgpsNs.clear();;
-  //vgpsSec.clear();;
-  //vgpsDay.clear();;
-  //vgpsYear.clear();;
-  
+  vcompNano.clear();;
+  vrf1.clear(); 
+  vrf2.clear(); 
+  vrf3.clear(); 
+
   ntrig555=0; ntrig5xx=0; ntrig444=0; ntrig4xx=0; ntrig111=0;ntrig1xx=0; ntrig000=0; ntrig0xx=0;
   for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
     qsum[ipmt]=0; eqsum[ipmt]=0;

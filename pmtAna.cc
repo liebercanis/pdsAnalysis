@@ -261,6 +261,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       if(jentry%100==0) printf(" \t.... %lld nbytes %lld pmtTree entries %lld \n",jentry,nbytes,pmtTree->GetEntries());
       // clear the event
       pmtEvent->clear();
+      pmtEvent->tag=pmtSummary->tag;
       // trigger type
       pmtEvent->trigType = triggerInfo();
 
@@ -272,12 +273,10 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       pmtEvent->rft21=rftime21;
       pmtEvent->rft22=rftime22;
       pmtEvent->rft23=rftime23;
-      pmtEvent->gpsYear=gps_Year;
-      pmtEvent->gpsDay=gps_daysIntoYear;;
-      pmtEvent->gpsSec=gps_secIntoDay;
-      pmtEvent->gpsNs=gps_nsIntoSec;;
-      //cout<<pmtEvent->gpsYear<<pmtEvent->gpsDay<<pmtEvent->gpsSec<<pmtEvent->gpsNs<<endl;
-      
+      pmtEvent->compSec=computer_secIntoEpoch;
+      pmtEvent->compNano=computer_nsIntoSec;
+      pmtSummary->vcompSec.push_back(computer_secIntoEpoch);
+      pmtSummary->vcompNano.push_back(computer_nsIntoSec);
       
       for(UInt_t ib=0; ib<NB; ++ib) {
         UInt_t time = digitizer_time[ib];
@@ -401,8 +400,9 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
         } // channel loop 
       } // board loop 
       pmtEvent->nhits= pmtEvent->hit.size();
-      if(jentry%100==0) printf(" \t\t jentry %lli nhits = %d \n",jentry,pmtEvent->nhits);
       pmtTree->Fill();
+      if(jentry%1000==0) printf(" \t\t jentry %lli nhits = %d \n",jentry,pmtEvent->nhits);
+      if(jentry%1000==0) pmtEvent->print();
    }   // end loop over entries
    printf(" finised looping  %u pmtTree size %llu \n",nloop,pmtTree->GetEntries());
    // normalize
@@ -797,6 +797,10 @@ Int_t pmtAna::triggerInfo()
   double t1 = 0; if(rftime21.size()>0) t1 = rftime21[0];
   double t2 = 0; if(rftime22.size()>0) t2 = rftime22[0];
   double t3 = 0; if(rftime23.size()>0) t3 = rftime23[0];
+
+  pmtSummary->vrf1.push_back(t1);
+  pmtSummary->vrf2.push_back(t2);
+  pmtSummary->vrf3.push_back(t3);
 
   Int_t r1 = Int_t(rftime21.size());
   Int_t r2 = Int_t(rftime22.size());

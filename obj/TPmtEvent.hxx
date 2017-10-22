@@ -20,8 +20,9 @@ class TPmtEvent: public TNamed {
 //		~TPmtEvent();
 
 		void clear();
-		void print(int ihit=0);
+		void print(int nHitsToPrint=0);
 		// data elements
+    std::string tag;
     Int_t trigType;
     Int_t    run;
     std::vector<Int_t> rft21;
@@ -30,15 +31,13 @@ class TPmtEvent: public TNamed {
     Int_t    event;
     Int_t    tpcTrig;
     Int_t    pdsTrig;
-    UShort_t  gpsYear;
-    UShort_t  gpsDay;
-    UInt_t    gpsSec;
-    UInt_t   gpsNs;
+    Int_t    compSec;
+    Long64_t compNano;
     std::vector<Double_t> qmax;
     std::vector<Double_t> qsum;
     Int_t  nhits;
 		std::vector<TPmtHit>  hit;
-		ClassDef(TPmtEvent,2)
+		ClassDef(TPmtEvent,3)
 };
 #endif
 
