@@ -41,7 +41,11 @@ void WFilter(TVirtualFFT *fFFTD, TVirtualFFT *fInverseFFTD, TVirtualFFT *fFFTR, 
     for (int ibin =0; ibin<nFFTSize; ++ibin) {
       double v=fInverseFFTD->GetPointReal(ibin)/double(nFFTSize);
       if(isnan(v)) { printf(" i %i v NAN \n",ibin); break; }
+<<<<<<< HEAD
+      //printf(" i %i v %f \n",ibin, v);
+=======
       printf(" i %i v %f \n",ibin, v);
+>>>>>>> 8da87108be6515f302dd9761483619c348f6c5c1
       hFData->SetBinContent(ibin+1,v);
     }
 }
@@ -201,16 +205,56 @@ void deconv(TString tag="led-pulse-events-cooper")
   TString inputFileName = tag+TString(".root");
   printf(" opening file %s \n",inputFileName.Data()); 
   TFile *infile = new TFile(inputFileName);
+<<<<<<< HEAD
+
+  
+  //infile->ls();
+  reading(infile);
+  for(UInt_t ih=0; ih<hlist.size(); ++ih) printf(" %i %s \n",ih,hlist[ih]->GetName());
+  hResponse140->Smooth(5);
+
+  TString outputFileName = tag+TString("-deconv.root");
+  printf(" opening file %s \n",outputFileName.Data()); 
+  TFile *outfile = new TFile(outputFileName,"recreate");
+
+  
+=======
   //infile->ls();
   reading(infile);
   for(UInt_t ih=0; ih<hlist.size(); ++ih) printf(" %i %s \n",ih,hlist[ih]->GetName());
 
   
 
+>>>>>>> 8da87108be6515f302dd9761483619c348f6c5c1
   // for deconvolution, make clones
   for(UInt_t ih=0; ih<hlist.size(); ++ih) hdlist.push_back(dynamic_cast<TH1F *>(hlist[ih]->Clone(Form("decEv%ih",ih))));
    // for filtesr deconvolution, make clones
   for(UInt_t ih=0; ih<hlist.size(); ++ih) hflist.push_back(dynamic_cast<TH1F *>(hlist[ih]->Clone(Form("fdecEv%ih",ih))));
+<<<<<<< HEAD
+  hResponse = dynamic_cast<TH1F *>(hlist[0]->Clone("fResponse"));
+  hResponse->Clear();
+  hResponse->SetName("fReponse");
+  hResponse->SetTitle(" full response function");
+  hResponse->Sumw2(false);
+  double hnorm =0;
+  for(int ibin=0; ibin<=hResponse->GetNbinsX(); ++ibin) {
+    hResponse->SetBinContent(ibin,0);
+    hResponse->SetBinError(ibin,0);
+  }
+  for(int ibin=1; ibin<=hResponse->GetNbinsX(); ++ibin) {
+    if(ibin<hResponse140->GetNbinsX()) hResponse->SetBinContent(ibin-2, hResponse140->GetBinContent(ibin));
+    //if(ibin<60) hResponse->SetBinContent(ibin-2, hResponse140->GetBinContent(ibin));
+  }
+  printf(" \n\n\t response integral %f \n\n",abs(hResponse->Integral()));
+  hnorm = abs(hResponse->Integral());
+  for(int ibin=1; ibin<=hResponse->GetNbinsX(); ++ibin)  hResponse->SetBinContent(ibin, hResponse->GetBinContent(ibin)/hnorm);
+  printf(" \n\n\t response integral %f \n\n",abs(hResponse->Integral()));
+
+  outfile->Add(hResponse140);
+  outfile->Add(hResponse);
+  //hResponse140->Print("all");
+  //hResponse->Print("all");
+=======
   hResponse = dynamic_cast<TH1F *>(hlist[0]->Clone("fullResponse"));
   hResponse->Clear();
   double hnorm =0;
@@ -222,6 +266,7 @@ void deconv(TString tag="led-pulse-events-cooper")
   }
   for(int ibin=1; ibin<=hResponse->GetNbinsX(); ++ibin)  hResponse->SetBinContent(ibin, hResponse->GetBinContent(ibin)/hnorm);
 
+>>>>>>> 8da87108be6515f302dd9761483619c348f6c5c1
  
   TString canTitle;
   gStyle->SetOptStat(1);
@@ -247,6 +292,12 @@ void deconv(TString tag="led-pulse-events-cooper")
     hlist[ih]->SetMarkerSize(0.5);
     hlist[ih]->GetXaxis()->SetRangeUser(400,600);	
     hlist[ih]->Draw();
+<<<<<<< HEAD
+
+
+    for(int ibin=1; ibin<=hdlist[ih]->GetNbinsX(); ++ibin)  hdlist[ih]->SetBinError(ibin, sqrt( hdlist[ih]->GetBinContent(ibin)));
+=======
+>>>>>>> 8da87108be6515f302dd9761483619c348f6c5c1
     
     hdlist[ih]->SetLineColor(kRed);
     hdlist[ih]->SetMarkerStyle(4);
@@ -346,8 +397,11 @@ void deconv(TString tag="led-pulse-events-cooper")
 
      printf(" fft size fftD %i fftR %i fftInv %i %i \n",*fFFTD->GetN(),  *fFFTR->GetN(), *fInverseFFTD->GetN(),nFFTSize); 
      WFilter(fFFTD,fInverseFFTD,fFFTR,hflist[ih]);
+<<<<<<< HEAD
+=======
      delete fFFTD;
      delete fInverseFFTD;
+>>>>>>> 8da87108be6515f302dd9761483619c348f6c5c1
 
   }
 
@@ -365,7 +419,11 @@ void deconv(TString tag="led-pulse-events-cooper")
     hlist[ih]->Draw();
     
     hflist[ih]->SetLineColor(kRed);
+<<<<<<< HEAD
+    hflist[ih]->SetMarkerStyle(21);
+=======
     hflist[ih]->SetMarkerStyle(4);
+>>>>>>> 8da87108be6515f302dd9761483619c348f6c5c1
     hflist[ih]->SetMarkerSize(0.5);
     hflist[ih]->SetMarkerColor(kRed);
     hflist[ih]->GetXaxis()->SetRangeUser(400,600);	
