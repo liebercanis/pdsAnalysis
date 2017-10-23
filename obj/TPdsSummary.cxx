@@ -221,7 +221,7 @@ void TPdsSummary::loop()
     pmtSummary->vevent.push_back(event);
     pmtSummary->ventry.push_back(ientry);    
     pmtSummary->vcompSec.push_back(compSec);
-    pmtSummary->vcompNs.push_back(compNs);
+    pmtSummary->vcompNano.push_back(compNano);
     //pmtSummary->vgpsNs.push_back(gpsNs);
     //pmtSummary->vgpsSec.push_back(gpsSec);
     //pmtSummary->vgpsDay.push_back(gpsDay);
@@ -351,7 +351,7 @@ void TPdsSummary::readFile(UInt_t ifile)
 
   pmt_tree->SetBranchAddress("event_number", &event);
   pmt_tree->SetBranchAddress("computer_secIntoEpoch", &compSec);
-  pmt_tree->SetBranchAddress("computer_nsIntoSec", &compNs);
+  pmt_tree->SetBranchAddress("computer_nsIntoSec", &compNano);
   pmt_tree->SetBranchAddress("gps_nsIntoSec", &gpsNs);
   pmt_tree->SetBranchAddress("gps_secIntoDay", &gpsSec);
   pmt_tree->SetBranchAddress("gps_daysIntoYear", &gpsDay);

@@ -91,7 +91,7 @@ class TPdsSummary: public TNamed {
     TTree *highBeamTree;
     UInt_t    event;
     Int_t     compSec;
-    Long64_t  compNs;
+    Long64_t  compNano;
     UInt_t    gpsNs;
     UInt_t    gpsSec;
     UShort_t  gpsDay;

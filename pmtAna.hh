@@ -106,7 +106,8 @@ public :
    TFile* outFile;
    TPmtSummary *pmtSummary;
    TFile *summaryFile;
-   TPmtGains *pmtGains;
+   TPmtGains *pmtGains;   // new gains from this run
+   TPmtGains *goodGains; // the ones used
    TFile *gainFile;
    
    

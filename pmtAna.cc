@@ -275,6 +275,10 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       pmtEvent->rft23=rftime23;
       pmtEvent->compSec=computer_secIntoEpoch;
       pmtEvent->compNano=computer_nsIntoSec;
+      // summary info 
+      pmtSummary->vtrig.push_back(pmtEvent->trigType);
+      pmtSummary->vevent.push_back(event_number);
+      pmtSummary->ventry.push_back(jentry);    
       pmtSummary->vcompSec.push_back(computer_secIntoEpoch);
       pmtSummary->vcompNano.push_back(computer_nsIntoSec);
       
@@ -332,7 +336,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           UInt_t tmaxUn=0;
           double qmaxUn=0;
           for(UInt_t is=0 ; is<MAXSAMPLES; ++is) {
-            double digi = -1.0*(double(digitizer_waveforms[ib][ic][is])/gain[ipmt]-baselineMedian);
+            double digi = -1.0*(double(digitizer_waveforms[ib][ic][is])/goodGains->gain[ipmt]-baselineMedian);
             if(digi>qmax) {
               qmax=digi;
               tmax=is+1;
@@ -450,74 +454,18 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
  
 Int_t pmtAna::readGainConstants(TString fileName)
 {
-  ifstream in;
-  in.open(fileName);
-  Int_t ngains=0;
-  if(!in.is_open() ) {
-    printf(" cannot open file %s \n",fileName.Data());
-    return ngains;
-  }
-  Double_t rgain[NPMT];
-  printf(" readGainConstants from file %s \n",fileName.Data());
-  string line,label,type,sgain;
-  while (in.good()) {
-    in >> label >> type >> sgain;
-    if(in.eof()) break;
-    // look for comment or blank line
-    if( label.find("%") != std::string::npos || label.size()<4 ) {
-      getline(in,line); // throw away line
-      continue;
-    }
-    if( label.size()<2) continue;
-    //cout << label << "  " << type << "  " << sgain << endl;
-    int b = atoi(&label[1]);
-    int c = atoi(&label[3]);
-    int ipmt = toPmtNumber(b,c);
-    rgain[ipmt] = atof(sgain.c_str());
-    ++ngains;
-  }
-  for(int ipmt=0; ipmt<NPMT; ++ipmt) printf(" %i  %f \n",ipmt,rgain[ipmt]); 
-  // normalize 
-  for(int ipmt=0; ipmt<NPMT; ++ipmt) { gain[ipmt] = rgain[ipmt]/rgain[0];}
-  printf(" normalized \n");
-  for(int ipmt=0; ipmt<NPMT; ++ipmt) printf(" %i  %f ; ",ipmt,gain[ipmt]); 
-  printf(" \n");
-
-  Double_t gsumAve[NPMT];
-  gsumAve[0]= 1.000 ;
-  gsumAve[1]= 0.962 ;
-  gsumAve[2]= 1.089 ;
-  gsumAve[3]= 1.106 ;
-  gsumAve[4]= 0.682 ;
-  gsumAve[5]= 0.900 ;
-  gsumAve[6]= 0.973 ;
-  gsumAve[7]= 1.021 ;
-  gsumAve[8]= 0.583 ;
-  gsumAve[9]= 0.623 ;
-  gsumAve[10]= 0.636 ;
-  gsumAve[11]= 0.743 ;
-  gsumAve[12]= 0.609 ;
-  gsumAve[13]= 0.831 ;
-  gsumAve[14]= 0.773 ;
-  gsumAve[15]= 0.954 ;
-  gsumAve[16]= 0.937 ;
-  gsumAve[17]= 0.872 ;
-  gsumAve[18]= 1.225 ;
-  gsumAve[19]= 1.206 ;
-  gsumAve[20]= 0.858 ;
-
- 
-  printf(" my gains \n");
-
-  for(int ipmt=0; ipmt<NPMT; ++ipmt) {
-    gain[ipmt]=1;
-    printf(" %i  %f  ; ",ipmt,gain[ipmt]); 
-  }
-
-  printf(" \n");
-
-  in.close();
-  return ngains;
+  TString filename("pmtGoodGains_07-31-1555_0.root");
+  TFile *fgain = new TFile(filename,"READONLY");
+  if(fgain->IsZombie()) { printf(" no gain file %s found \n",filename.Data()); return 0;}
+  TTree *gtree=NULL;
+  fgain->GetObject("gainsTree",gtree);
+  if(!gtree) { printf(" no gainsTree not found \n"); return 0;}
+  goodGains = new TPmtGains();
+  gtree->SetBranchAddress("pmtGains",&goodGains);
+  gtree->GetEntry(0);
+  printf(" \n \t using gains from file %s\n",filename.Data()); 
+  goodGains->print();
+  return 21;
 }
 
 std::vector<Int_t> pmtAna::findRFTimes(int ipmt, double& step) 
