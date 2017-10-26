@@ -275,7 +275,10 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       pmtEvent->rft23=rftime23;
       pmtEvent->compSec=computer_secIntoEpoch;
       pmtEvent->compNano=computer_nsIntoSec;
-      // summary info 
+      // summary info
+      pmtSummary->vdtime1.push_back(digitizer_time[0]);
+      pmtSummary->vdtime2.push_back(digitizer_time[1]);
+      pmtSummary->vdtime3.push_back(digitizer_time[2]);
       pmtSummary->vtrig.push_back(pmtEvent->trigType);
       pmtSummary->vevent.push_back(event_number);
       pmtSummary->ventry.push_back(jentry);    
@@ -336,7 +339,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           UInt_t tmaxUn=0;
           double qmaxUn=0;
           for(UInt_t is=0 ; is<MAXSAMPLES; ++is) {
-            double digi = -1.0*(double(digitizer_waveforms[ib][ic][is])/goodGains->gain[ipmt]-baselineMedian);
+            double digi = -1.0*(double(digitizer_waveforms[ib][ic][is])/gain[ipmt]-baselineMedian);
             if(digi>qmax) {
               qmax=digi;
               tmax=is+1;
@@ -465,6 +468,12 @@ Int_t pmtAna::readGainConstants(TString fileName)
   gtree->GetEntry(0);
   printf(" \n \t using gains from file %s\n",filename.Data()); 
   goodGains->print();
+  for(int ipmt=1; ipmt<NPMT; ++ipmt) gain[ipmt]=goodGains->gain[ipmt]/goodGains->gain[0];
+  gain[0]=1.0;
+  printf(" using normalized gains \n");
+  for(int ipmt=0; ipmt<NPMT; ++ipmt) printf(" %i  %f ; ",ipmt,gain[ipmt]); 
+  printf(" \n");
+
   return 21;
 }
 
@@ -675,8 +684,15 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     //
     Double_t length = TMath::Abs(phit.tstop-phit.tstart)+1;
     // time past latest RF pulse
-    Int_t rft = -99;
-    //if(rfTime22.size()>0) rft=peakt%rfTime22[0];
+    Double_t rft = 0;
+    // average over 3 boards 
+    Int_t nrftimes=0;
+    
+    if(pmtEvent->rft21.size()>0) {rft += double(pmtEvent->rft21[0]); ++nrftimes; }
+    if(pmtEvent->rft22.size()>0) {rft += double(pmtEvent->rft22[0]); ++nrftimes; }
+    if(pmtEvent->rft23.size()>0) {rft += double(pmtEvent->rft23[0]); ++nrftimes; }
+    if( nrftimes>0) rft /= double(nrftimes);
+
     if(pmtEvent->trigType==TPmtEvent::TRIG000)  hRawQ[ipmt]->Fill(qUnpeak); 
       // hRawQ[ipmt]->Fill(qUnhit);
     ntHit->Fill(ipmt,sum,peakt,rft,length,qpeak,qUnpeak,qhit,qUnhit,phit.fwhm,phit.ratio);

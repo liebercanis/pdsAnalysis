@@ -47,6 +47,9 @@ class TPmtSummary: public TNamed {
     std::vector<Int_t>     vrf3;
     std::vector<UInt_t>    vevent;
     std::vector<Long64_t>  ventry;
+    std::vector<UInt_t>  vdtime1;   // caen digitizer time 
+    std::vector<UInt_t>  vdtime2;   // caen digitizer time 
+    std::vector<UInt_t>  vdtime3;   // caen digitizer time 
     std::vector<Int_t>     vcompSec;
     std::vector<Long64_t>  vcompNano;
     //std::vector<UInt_t>    vgpsNs;

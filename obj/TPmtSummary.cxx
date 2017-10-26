@@ -20,6 +20,9 @@ void TPmtSummary::clear()
   vrf1.clear(); 
   vrf2.clear(); 
   vrf3.clear(); 
+  vdtime1.clear(); 
+  vdtime2.clear(); 
+  vdtime3.clear(); 
 
   ntrig555=0; ntrig5xx=0; ntrig444=0; ntrig4xx=0; ntrig111=0;ntrig1xx=0; ntrig000=0; ntrig0xx=0;
   for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {

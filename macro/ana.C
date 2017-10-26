@@ -23,7 +23,11 @@ enum {NPMT=NB*NCPMT};
   TH1D* hQHitOff[NPMT];
   TH1D* hQHitNoBeam[NPMT];
   TH1D* hQHitLength[NPMT];
-  TNtuple *ntHit;
+
+  TH1F *promptt_rft_h;
+  TH1F *tof_h;
+  TH1F *nspectrum_h;
+
   //TH1D* hQHitTime[NPMT];
   TPmtEvent *ev;
 // returns -1 if pmt does not exist 
@@ -179,8 +183,8 @@ void newCanPlots(TString tag)
 
 
 
-void ana(TString tag="07-31-1555_0")
-    //"07-26-0914_0") // "07-31-1555_0") //
+void ana(TString tag="07-31-1600_0")
+//"07-26-0914_0") // "07-31-1555_0") //
 {
   TString inputFileName = TString("../pdsOutput/pmtAna_")+tag+TString(".root");
   printf(" opening file %s \n",inputFileName.Data()); 
@@ -194,16 +198,53 @@ void ana(TString tag="07-31-1555_0")
   printf(" pmtTree with %i entries \n",int(aSize));
 
   if(aSize==0) return;
-
+  // get ntPmt ntuple
+  float ipmt_ntPmt,trig,tmax,qmax,tmaxUn,qmaxUn,sumUn,noise,base,nhit;
+  
+  TNtuple* ntPmt = (TNtuple*)(infile->Get("ntPmt"));
+  ntPmt->SetBranchAddress("trig", &trig);
+  ntPmt->SetBranchAddress("ipmt", &ipmt_ntPmt);
+  ntPmt->SetBranchAddress("tmax", &tmax);
+  ntPmt->SetBranchAddress("qmax", &qmax);
+  ntPmt->SetBranchAddress("tmaxUn", &tmaxUn);
+  ntPmt->SetBranchAddress("qmaxUn", &qmaxUn);
+  ntPmt->SetBranchAddress("sumUn",   &sumUn);
+  ntPmt->SetBranchAddress("noise",&noise);
+  ntPmt->SetBranchAddress("base",   &base);
+  ntPmt->SetBranchAddress("nhit", &nhit);
+  printf(" ntPmt with %i entries \n",int(ntPmt->GetEntries()));
+  
+  float ipmt_ntHit,sum,time,rftime,length,qpeak,qUnpeak,qhit,qUnhit,fwhm,ratio;
+  TNtuple* ntHit = (TNtuple*)(infile->Get("ntHit"));
+  ntHit->SetBranchAddress("ipmt", &ipmt_ntHit);
+  ntHit->SetBranchAddress("sum", &sum);
+  ntHit->SetBranchAddress("time", &time);
+  ntHit->SetBranchAddress("rftime", &rftime);
+  ntHit->SetBranchAddress("length", &length);
+  ntHit->SetBranchAddress("qpeak", &qpeak);
+  ntHit->SetBranchAddress("qUnpeak", &qUnpeak);
+  ntHit->SetBranchAddress("qhit", &qhit);
+  ntHit->SetBranchAddress("qUnhit", &qUnhit);
+  ntHit->SetBranchAddress("fwhm", &fwhm);
+  ntHit->SetBranchAddress("ratio", &ratio);  
+  printf(" ntHit with %i entries \n",int(ntHit->GetEntries()));
+  
+    
   // open ouput file and make some histograms
   TString outputFileName = TString("ana-")+tag+TString(".root");
   TFile *outfile = new TFile(outputFileName,"recreate");
   printf(" opening output file %s \n",outputFileName.Data());
   hTimeToRF = new TH1D("TimeToRF"," hit time to RF time",MAXSAMPLES/2,0,MAXSAMPLES+1);
-  ntHit = new TNtuple("ntAnaHit", " ana hits ","ipmt:rft:peakt:length:ratio:q:qp");
+  TNtuple* ntAnaHit = new TNtuple("ntAnaHit", " ana hits ","ipmt:rft:peakt:length:ratio:q:qp");
   hQinHit = new TH1D("QinHit"," ADC counts of bins in hit ",2000,0,20);
   outfile->ls();
     
+  TH1F *sum_h = new TH1F("sum_h","sum",2100,0,2100);// temperarily sum all the peaks and take the maximum as prompt time; eventually will use summed channel
+  TH1F *qun_h = new TH1F("qun_h","sum",3000,0,30000);
+  promptt_rft_h = new TH1F("promptt_rft_h","Prompt Time - RFtime;Time (ns);Number of entries",2*MAXSAMPLES,-4*MAXSAMPLES,4*MAXSAMPLES); 
+  tof_h = new TH1F("tof_h","TOF (Assuming L = 23.2 m);Time (ns);Number of entries",2*MAXSAMPLES,-4*MAXSAMPLES,4*MAXSAMPLES); 
+  nspectrum_h = new TH1F("neutron_spectrum_h",";Neutron E_{Kin} (MeV);Frac of triggers",400,0,4000);
+  
   TString hname;
   TString htitle;
 
@@ -248,12 +289,72 @@ void ana(TString tag="07-31-1555_0")
   pmtTree->SetBranchAddress("pmtEvent",&ev);
 
   std::vector<TPmtHit>  hit;
+  
+  /*** Yujing neutron spectrum ****/
+  int counter=0;
+  int threshold=0;
+  for(unsigned ientry =0; ientry < aSize; ++ientry ) {
+    pmtTree->GetEntry(ientry);
+    hit.clear();
+    hit = ev->hit;
+   
+    if(ientry%1000==0) printf(" size of hit is %zu \n",hit.size());
+    float totalqUn=0;
+ 
+    ntPmt->GetEntry(ientry*21);
+    if(trig==5) {
+      for(int ihit =0; ihit < hit.size(); ++ihit) {
+        TPmtHit* phit = &(ev->hit[ihit]);
+        sum_h->Fill(phit->peakTime,phit->qpeak);
+        ntHit->GetEntry(counter);
+        qun_h->Fill(qUnhit);
+        totalqUn+=qUnhit;
+        counter++;
+      }
+      float fmaxBin = float(sum_h->GetMaximumBin());
+      if(ientry%1000==0) printf(" totalqUn %f max hist bin  is %.0f rftime %f \n",totalqUn,fmaxBin,rftime);
+      if(totalqUn>threshold) promptt_rft_h->Fill((fmaxBin-rftime)*4);
+      if(totalqUn>threshold && (fmaxBin-rftime)*4<-800) cout<< " ientry is " << ientry<< "(fmaxBin-rftime)*4 " << (fmaxBin-rftime)*4 << endl;
+    } else 
+      counter+=hit.size();
+
+    // save the last one
+    if(ientry<aSize-1) sum_h->Reset();
+  }
+
+  double L=23.2;//m
+  double clight=0.299792458;//m/ns
+  double nmass=939.565;//MeV
+  double En;
+  
+  TF1 *g1 = new TF1("g1","gaus",-640,-620);
+  g1->SetLineColor(2);
+  promptt_rft_h->Fit("g1","R");
+  //promptt_rft_h->SetAxisRange(-700,-200);
+  
+  cout<<g1->GetParameter(1)<<endl;
+  for (int i=1;i<=4200;i++){
+    if(i>1945)tof_h->SetBinContent(i-g1->GetParameter(1)/4.+L/clight/4.,promptt_rft_h->GetBinContent(i));
+  }
+
+  for (int i=0;i<1000000;i++) {
+     double t=tof_h->GetRandom();
+     double beta = L/t/clight;
+     double gamma = sqrt(1/(1-beta*beta);
+     En=nmass*(gamma-1);
+     nspectrum_h->Fill(En);
+  }  
+  nspectrum_h->Scale(1./1000000);
+   
+
   for(unsigned entry =0; entry < aSize; ++entry ) {
     pmtTree->GetEntry(entry);
     hit.clear();
     hit = ev->hit;
     if(entry%1000==0) printf("...entry %i hits %lu trig type %i (%lu,%lu,%lu) \n",entry,hit.size(), ev->trigType,
         ev->rft21.size(),ev->rft23.size(),ev->rft23.size());
+
+	 
     for(int ihit =0; ihit < hit.size(); ++ihit) {
       TPmtHit* phit = &(ev->hit[ihit]);
       for(int is=0; is<phit->nsamples; ++is) hQinHit->Fill(phit->qsample[is]);
@@ -274,12 +375,12 @@ void ana(TString tag="07-31-1555_0")
       if(ev->trigType==TPmtEvent::TRIG000)  hQHitNoBeam[phit->ipmt]->Fill(phit->qhit);  
 
       
-      ntHit->Fill(phit->ipmt,phit->timeToRF, phit->peakTime, length, phit->ratio, phit->qhit, phit->qpeak);
+      ntAnaHit->Fill(phit->ipmt,phit->timeToRF, phit->peakTime, length, phit->ratio, phit->qhit, phit->qpeak);
     }
   }
 
   // end of ana 
-  newCanPlots(tag);
+  //newCanPlots(tag);
   outfile->Write();
 
   for(int ipmt=0; ipmt<NPMT; ++ ipmt) printf(" mean[%i]=%f ; \n",ipmt, hQHitNoBeam[ipmt]->GetMean());
