@@ -42,6 +42,7 @@ public :
   enum {NALLCH=NB*NC};
   enum {NPMT=NCPMT*NB};
   enum {MAXADC=4095};
+  enum {THRESHOLDHIGH=1,THRESHOLDLOW=0};
   //peak finding
   enum {minLength=3,maxHalfLength=100};
  
