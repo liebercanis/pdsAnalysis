@@ -33,11 +33,17 @@ class TPmtEvent: public TNamed {
     Int_t    pdsTrig;
     Int_t    compSec;
     Long64_t compNano;
+
+    UInt_t  dtime[3];   // caen digitizer time 
+    
+    Double_t tRFave;
+    Double_t tPrompt;
+    Double_t promptLike;
     std::vector<Double_t> qmax;
     std::vector<Double_t> qsum;
     Int_t  nhits;
 		std::vector<TPmtHit>  hit;
-		ClassDef(TPmtEvent,3)
+		ClassDef(TPmtEvent,4)
 };
 #endif
 

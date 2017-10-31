@@ -92,10 +92,7 @@ class TPdsSummary: public TNamed {
     UInt_t    event;
     Int_t     compSec;
     Long64_t  compNano;
-    UInt_t    gpsNs;
-    UInt_t    gpsSec;
-    UShort_t  gpsDay;
-    UShort_t  gpsYear;
+    UInt_t   digitizer_time[NB];
     UShort_t digitizer_waveforms[NB][NC][NS];
     
     TFile *summaryFile;
@@ -106,8 +103,7 @@ class TPdsSummary: public TNamed {
     TFile *highBeamFile;
     Int_t badFiles;
     Int_t goodFiles;
-
-		ClassDef(TPdsSummary,2)
+		ClassDef(TPdsSummary,3)
 };
 #endif
 

@@ -126,6 +126,7 @@ public :
    std::vector<Int_t> findRFTimes(int ipmt,double& digiMin);
    void ADCFilter(int iB, int iC);
    void qualitySummary(TString tag);
+   Double_t getPromptTime();
    
 
    // returns -1 if pmt does not exist 
@@ -175,6 +176,10 @@ public :
    // histogram pointers
    TH1D* hSamples[NALLCH];  // include RF
    TH1D* hSamplesSum;
+
+   TH1D* hTPrompt;
+   TH1D* hTPromptEvent;
+   TDirectory *promptDir;
 
    TH1D* hSamplesPDS[NPMT];  // include RF
    TH1D* hSamplesPDSSum;

@@ -11,7 +11,7 @@ TPdsSummary::TPdsSummary(TString theDirName): TNamed("TPdsSummary","TPdsSummary"
   badFiles=0;
   goodFiles=0;
   // get list of files
-  fullDirName= TString("2017/")+dirName;
+  fullDirName= TString("./2017/")+dirName;
   void *dirp = gSystem->OpenDirectory(fullDirName);
   cout << " TPdsSummary full directory name is " << fullDirName << endl;
   if (!dirp) {
@@ -23,7 +23,7 @@ TPdsSummary::TPdsSummary(TString theDirName): TNamed("TPdsSummary","TPdsSummary"
   //loop on all entries of this directory
   fileList.clear();
   while ((direntry=(char*)gSystem->GetDirEntry(dirp))) { 
-  printf(" total of files in %s is %lu  \n",dirName.Data(),fileList.size());
+    //printf(" total of files in %s is %lu  \n",dirName.Data(),fileList.size());
     //cout << direntry << endl;
     string fname = string(direntry);
     if ( strstr(fname.c_str(), "PDSout" )==NULL ) continue;
@@ -33,19 +33,18 @@ TPdsSummary::TPdsSummary(TString theDirName): TNamed("TPdsSummary","TPdsSummary"
     Int_t day =  getDay();
     Int_t min =  getMin();
     Int_t segment =  getSegment();
-    if( month==7 && day < 20) {
-      printf(" skipping early run formatted fill, tag is %s month %i day %i min %i segment %i \n",tag.c_str(),month,day,min,segment);
-      continue;
-    } 
-    fileList.push_back(fname);
+    if( min>=1581 && min <= 1609) {
+      fileList.push_back(fname);
+    }
   }
-  // why do I have to do this??
   isEmpty = fileList.empty();
   if(isEmpty) { 
     printf(" \t WARNINNG:: file list is empty \n");
-    fileList.clear();
+    //fileList.clear();
   }
-  printf(" total of files in %s is %lu  \n",dirName.Data(),fileList.size());
+  printFiles();
+  // run over all files in list
+  run(0,fileList.size());
 }
 
 TPdsSummary::~TPdsSummary(){}
@@ -53,10 +52,11 @@ TPdsSummary::~TPdsSummary(){}
 
 void TPdsSummary::run(Int_t fFirst, Int_t maxFiles) 
 { 
-  if(isEmpty) {
+  if(isEmpty||fileList.size()<1) {
     printf(" run returning because fileList is empty\n");
     return;
   }
+  
   // structure for holding pmt info 
   //open output file
   TString fileTag;
@@ -68,6 +68,7 @@ void TPdsSummary::run(Int_t fFirst, Int_t maxFiles)
   summaryTree = new TTree("summaryTree","summaryTree");
   pmtSummary  = new TPmtSummary();
   summaryTree->Branch("pmtSummary",&pmtSummary);
+
   summaryFile->ls();
 
 
@@ -76,8 +77,9 @@ void TPdsSummary::run(Int_t fFirst, Int_t maxFiles)
   unsigned ffirst =fFirst;
   unsigned fmax = ffirst+fileList.size();
   if(maxFiles>0) fmax=ffirst+UInt_t(maxFiles);
-  printf(" now loop over files in %s is %lu reading from %u to %u \n",dirName.Data(),fileList.size(),ffirst,fmax);
+  printf(" now loop over files in %s total of %lu reading from %u to < %u \n",dirName.Data(),fileList.size(),ffirst,fmax);
   for( unsigned ifile =ffirst ; ifile < fmax ; ++ifile ) {
+    printf(" %i  \n",ifile);
     printf(" %i %s \n",ifile,fileList[ifile].c_str());
     readFile(ifile);
     printf(" have written %i bytes \n",summaryTree->FlushBaskets());
@@ -190,7 +192,6 @@ void TPdsSummary::ADCFilter(int iB, int iC)
 
 void TPdsSummary::loop() 
 {
- 
   Long64_t entries = pmt_tree->GetEntries(); 
   cout << "Looping over tag " << tag << " pmt_tree has entries = " << entries << endl;
   pmtSummary->clear();
@@ -212,9 +213,11 @@ void TPdsSummary::loop()
     if(ientry%1000==0) printf(" ..... %lld \n",ientry);
     Int_t trigType = triggerInfo();
     // output based on trigger type
+    /**
     if(trigType==TPmtEvent::TRIG000) noBeamTree->Fill();
     if(trigType==TPmtEvent::TRIG111) lowBeamTree->Fill();
     if(trigType==TPmtEvent::TRIG555 || trigType==TPmtEvent::TRIG444 ) highBeamTree->Fill();
+    **/
 
     // store all the event time info
     pmtSummary->vtrig.push_back(trigType);
@@ -222,11 +225,9 @@ void TPdsSummary::loop()
     pmtSummary->ventry.push_back(ientry);    
     pmtSummary->vcompSec.push_back(compSec);
     pmtSummary->vcompNano.push_back(compNano);
-    //pmtSummary->vgpsNs.push_back(gpsNs);
-    //pmtSummary->vgpsSec.push_back(gpsSec);
-    //pmtSummary->vgpsDay.push_back(gpsDay);
-    //pmtSummary->vgpsYear.push_back(gpsYear);
-    //pmtSummary->print();
+    pmtSummary->vdtime1.push_back(digitizer_time[0]);
+    pmtSummary->vdtime2.push_back(digitizer_time[1]);
+    pmtSummary->vdtime3.push_back(digitizer_time[2]);
     
 
     for(UInt_t ib=0; ib<NB; ++ib) {
@@ -276,7 +277,7 @@ void TPdsSummary::loop()
           vnoise.push_back(noise);
       }
     }
-  }
+  } // end of event loop
   // fill rest of summary
   // ugly utility arrays used in summary
   Double_t x[NPMT], y[NPMT], z[NPMT],y2[NPMT],z2[NPMT],ex[NPMT], ey[NPMT], ez[NPMT];
@@ -352,10 +353,7 @@ void TPdsSummary::readFile(UInt_t ifile)
   pmt_tree->SetBranchAddress("event_number", &event);
   pmt_tree->SetBranchAddress("computer_secIntoEpoch", &compSec);
   pmt_tree->SetBranchAddress("computer_nsIntoSec", &compNano);
-  pmt_tree->SetBranchAddress("gps_nsIntoSec", &gpsNs);
-  pmt_tree->SetBranchAddress("gps_secIntoDay", &gpsSec);
-  pmt_tree->SetBranchAddress("gps_daysIntoYear", &gpsDay);
-  pmt_tree->SetBranchAddress("gps_Year", &gpsYear);
+  pmt_tree->SetBranchAddress("digitizer_time", &digitizer_time[NB]);
   pmt_tree->SetBranchAddress("digitizer_waveforms", &digitizer_waveforms);
   
   getTag(fileList[ifile]); 
@@ -366,6 +364,7 @@ void TPdsSummary::readFile(UInt_t ifile)
   noBeamFile = new TFile(noBeamFileName,"recreate");
   noBeamFile->cd();
   pmt_tree->ls();
+  /*
   noBeamTree = pmt_tree->CloneTree(0);
   printf(" opening pdsNoBeam file %s \n",noBeamFileName.Data());
   noBeamTree->ls();
@@ -383,16 +382,17 @@ void TPdsSummary::readFile(UInt_t ifile)
   highBeamTree = pmt_tree->CloneTree(0);
   printf(" opening pdsNoBeam file %s \n",highBeamFileName.Data());
   highBeamTree->ls();
+  */
 
   loop();
 
   fin->Close();
   // write and close strip files
-  printf(" stripped file %i,  %s noBeam events %lu lowBeam events %lu highBeam events %lu \n",  ifile, fileList[ifile].c_str(), 
-      noBeamTree->GetEntries(), lowBeamTree->GetEntries(), highBeamTree->GetEntries());
-  noBeamFile->Write(); noBeamFile->Close();
-  lowBeamFile->Write(); lowBeamFile->Close();
-  highBeamFile->Write();highBeamFile->Close();
+  //printf(" stripped file %i,  %s noBeam events %lu lowBeam events %lu highBeam events %lu \n",  ifile, fileList[ifile].c_str(), 
+  //    noBeamTree->GetEntries(), lowBeamTree->GetEntries(), highBeamTree->GetEntries());
+  //noBeamFile->Write(); noBeamFile->Close();
+  //lowBeamFile->Write(); lowBeamFile->Close();
+  //highBeamFile->Write();highBeamFile->Close();
   
   
 }

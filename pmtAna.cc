@@ -51,6 +51,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   // open ouput file and make some histograms
   TString outputFileName = TString("pdsOutput/pmtAna_")+tag+ TString(".root");
   outFile = new TFile(outputFileName,"recreate");
+  promptDir = outFile->mkdir("promptDir");
   outFile->cd();
   printf(" opening output file %s \n",outputFileName.Data());
 
@@ -81,6 +82,13 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
     
   TString hname;
   TString htitle;
+
+
+  hTPrompt = new TH1D("TPrompt"," peak of charge weighted pulse times",MAXSAMPLES+500,-500,MAXSAMPLES);
+  hTPrompt->SetXTitle(" prompt peak (sample time) ");
+
+  hTPromptEvent = new TH1D("TPromptEvent"," peak of charge weighted pulse times, single event",MAXSAMPLES,0,MAXSAMPLES);
+  hTPromptEvent->SetXTitle(" prompt peak (sample time) ");
 
 
   for(UInt_t ib=0; ib<NB; ++ib) {
@@ -253,6 +261,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
    UInt_t nloop=nentries;
    if(nToLoop!=0) nloop = nToLoop;
    printf(" entries %lld looping %d first %d \n",nentries,nloop,firstEntry);
+   std::vector<Double_t> vpromptLike;
   // loop over entries
    for (Long64_t jentry=firstEntry; jentry<nloop+firstEntry; jentry++) {
       Long64_t ientry = LoadTree(jentry);
@@ -368,7 +377,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           fdigi = MovingAverageFilter(ddigi,5); // parameter is top hat window which should be odd
 
           // make some single event sample plots 
-          if(ientry<2) {
+          if(jentry<2) {
             TString hname,htitle;
             hname.Form("Digi_pmt%i_ev%i",ipmt,Int_t(ientry));
             htitle.Form("digi samples pmt %i ev %i",ipmt,Int_t(ientry));
@@ -401,11 +410,29 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
             hPeaks[ipmt]->SetBinContent(bin+1, hPeaks[ipmt]->GetBinContent(bin+1)+ddigi[bin]);
           }
           hQMax[ipmt]->Fill(qmax);
-          ntPmt->Fill(double(pmtEvent->trigType),double(ipmt),tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,baselineMedian-baselineNominal[ipmt],nhits);
+          ntPmt->Fill(double(pmtEvent->trigType),
+              double(ipmt),tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,baselineMedian-baselineNominal[ipmt],nhits);
           pmtEvent->qmax.push_back(qmax);
           pmtEvent->qsum.push_back(sum);
+ 
         } // channel loop 
       } // board loop 
+      /*** after filling hits, get prompt time ****/
+      pmtEvent->tPrompt = getPromptTime();
+      vpromptLike.clear();
+      for(Int_t ibin=1; ibin<=  hTPromptEvent->GetNbinsX()+1; ++ibin) vpromptLike.push_back( hTPromptEvent->GetBinContent(ibin) );
+      std::sort(vpromptLike.begin(), vpromptLike.end());
+      Double_t pAverage=0;
+      // take average of 100 next highest bins;
+      for(unsigned iv =  vpromptLike.size()-1; iv >= vpromptLike.size() - 11; --iv) pAverage += vpromptLike[iv];
+      pAverage /= 10.0;
+      //printf(" %lld %f %f \n",jentry,pmtEvent->tPrompt,pAverage);
+      pmtEvent->promptLike= pAverage;
+      // save some of these histograms
+      TH1D* hSave = dynamic_cast<TH1D*>(hTPromptEvent->Clone( Form("TPromptEvent%lld",jentry)));
+      hSave->SetTitle( Form("TPromptEvent%lld %.2f %.2f ",jentry,pmtEvent->tPrompt,pAverage));
+      if(jentry<100) promptDir->Append(hSave);
+      hTPrompt->Fill(pmtEvent->tPrompt);
       pmtEvent->nhits= pmtEvent->hit.size();
       pmtTree->Fill();
       if(jentry%1000==0) printf(" \t\t jentry %lli nhits = %d \n",jentry,pmtEvent->nhits);
@@ -678,24 +705,15 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     phit.qpeak=qpeak;
     phit.qUnpeak=qUnpeak;
     phit.ratio=phit.qpeak/phit.qhit;
-    phit.peakTime=peakt;
+    phit.peakTime=Double_t(peakt);
     phit.offset=0;
     phit.nsamples=phit.qsample.size();
     //
     Double_t length = TMath::Abs(phit.tstop-phit.tstart)+1;
     // time past latest RF pulse
-    Double_t rft = 0;
-    // average over 3 boards 
-    Int_t nrftimes=0;
-    
-    if(pmtEvent->rft21.size()>0) {rft += double(pmtEvent->rft21[0]); ++nrftimes; }
-    if(pmtEvent->rft22.size()>0) {rft += double(pmtEvent->rft22[0]); ++nrftimes; }
-    if(pmtEvent->rft23.size()>0) {rft += double(pmtEvent->rft23[0]); ++nrftimes; }
-    if( nrftimes>0) rft /= double(nrftimes);
-
     if(pmtEvent->trigType==TPmtEvent::TRIG000)  hRawQ[ipmt]->Fill(qUnpeak); 
-      // hRawQ[ipmt]->Fill(qUnhit);
-    ntHit->Fill(ipmt,sum,peakt,rft,length,qpeak,qUnpeak,qhit,qUnhit,phit.fwhm,phit.ratio);
+    // hRawQ[ipmt]->Fill(qUnhit);
+    ntHit->Fill(ipmt,sum,peakt,pmtEvent->tRFave,length,qpeak,qUnpeak,qhit,qUnhit,phit.fwhm,phit.ratio);
     if(qUnpeak<1) phit.print();
     hHitQ[ipmt]->Fill(qhit);
     bool bad=false;
@@ -757,6 +775,20 @@ Int_t pmtAna::triggerInfo()
   rftime21 = findRFTimes(21,s1);
   rftime22 = findRFTimes(22,s2);
   rftime23 = findRFTimes(23,s3);
+
+  // calculate average RF time
+  Double_t rft = 0;
+  // average over 3 boards 
+  Int_t nrftimes=0;
+
+  if(rftime21.size()>0) {rft += double(rftime21[0]); ++nrftimes; }
+  if(rftime22.size()>0) {rft += double(rftime22[0]); ++nrftimes; }
+  if(rftime23.size()>0) {rft += double(rftime23[0]); ++nrftimes; }
+  if( nrftimes>0) rft /= double(nrftimes);
+  pmtEvent->tRFave=rft;
+  for(int itime=0; itime<NB; ++itime)  pmtEvent->dtime[itime] = digitizer_time[itime];
+
+
   //UInt_t totalTimes = rftime21.size()+rftime21.size()+rftime21.size();
   double t1 = 0; if(rftime21.size()>0) t1 = rftime21[0];
   double t2 = 0; if(rftime22.size()>0) t2 = rftime22[0];
@@ -1095,6 +1127,17 @@ Int_t pmtAna::Cut(Long64_t entry)
    return 1;
 }
 
+Double_t pmtAna::getPromptTime()
+{
+  // fill histogram to find peak bin in event.
+  hTPromptEvent->Reset();
+  for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {
+    Int_t hitTime = pmtEvent->hit[ihit].peakTime;
+    Double_t qpeak = pmtEvent->hit[ihit].qpeak;
+    hTPromptEvent->Fill(Int_t(hitTime),qpeak);
+  }
+  return Double_t(hTPromptEvent->GetMaximumBin())-pmtEvent->tRFave; 
+}
 
 // nearest RF time to hit peak time
 void pmtAna::getTimeToRF() 

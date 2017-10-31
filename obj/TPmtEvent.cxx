@@ -21,13 +21,17 @@ void TPmtEvent::clear()
   pdsTrig=0;
   compSec=0;
   compNano=0;
+  tRFave=0;
+  tPrompt=0;
+  promptLike=0;
   nhits=0;
   hit.clear();	 
   qsum.clear();
   qmax.clear();
+  for(int i=0; i<3; ++i) dtime[i]=0;
  }
 
-void TPmtEvent::print(int nHitsToPrint)
+void TPmtEvent::print(int nHitsToPrint) 
 {
   int r21=0; if(rft21.size()>0) r21=rft21[0];
   int r22=0; if(rft22.size()>0) r22=rft22[0];
