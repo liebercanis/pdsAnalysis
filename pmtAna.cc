@@ -396,7 +396,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           hCounts[ipmt]->Fill(sum);
           // peak finding
           //printf("calling find peaks event %i pmt %i noise %f 68v %f base %f \n",event_number,ipmt,noise,sdigi[0.68*sdigi.size()], baselineMedian);
-          std::vector<Int_t> peakTime = findPeaks(ddigi,1.0,0.0);
+	  std::vector<Int_t> peakTime = findPeaks(ddigi,THRESHOLDHIGH,THRESHOLDLOW);
           //std::vector<Int_t> peakTime = findMaxPeak(fdigi,8.0*noise,3.0*noise);
           Int_t nhits = findHits(ipmt,sum,peakTime,ddigi,ddigiUn,pmtEvent->trigType);
           getTimeToRF();
