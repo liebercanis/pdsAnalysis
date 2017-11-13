@@ -166,11 +166,13 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
     }
   }
   //gDirectory->ls();
- 
-   
-  // loop over entries zero = all 
+
+  /***  loop over entries zero = all ***/
   UInt_t nLoop = Loop(maxLoop,firstEntry);
   qualitySummary(tag);
+
+ 
+   
   gainsTree->Fill();
   gainFile->Write();
   summaryTree->Fill();
@@ -396,7 +398,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           hCounts[ipmt]->Fill(sum);
           // peak finding
           //printf("calling find peaks event %i pmt %i noise %f 68v %f base %f \n",event_number,ipmt,noise,sdigi[0.68*sdigi.size()], baselineMedian);
-	  std::vector<Int_t> peakTime = findPeaks(ddigi,THRESHOLDHIGH,THRESHOLDLOW);
+          std::vector<Int_t> peakTime = findPeaks(ddigi,THRESHOLDHIGH,THRESHOLDLOW);
           //std::vector<Int_t> peakTime = findMaxPeak(fdigi,8.0*noise,3.0*noise);
           Int_t nhits = findHits(ipmt,sum,peakTime,ddigi,ddigiUn,pmtEvent->trigType);
           getTimeToRF();
@@ -419,6 +421,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       } // board loop 
       /*** after filling hits, get prompt time ****/
       pmtEvent->tPrompt = getPromptTime();
+      pmtSummary->vprompt.push_back(pmtEvent->tPrompt);
       vpromptLike.clear();
       for(Int_t ibin=1; ibin<=  hTPromptEvent->GetNbinsX()+1; ++ibin) vpromptLike.push_back( hTPromptEvent->GetBinContent(ibin) );
       std::sort(vpromptLike.begin(), vpromptLike.end());
@@ -1023,8 +1026,34 @@ void pmtAna::qualitySummary(TString tag)
     c2->Print(".pdf");
     outFile->Append(gr2);
     outFile->Append(grUn2);
-    pmtGains->print();
-    pmtSummary->print();
+
+ // fit for tzero from this run 
+  // find first rise !!this is only a first attempt should be improved!!
+  Double_t zero=0;
+  for (int i=1;i<hTPrompt->GetNbinsX();i++){
+    zero = hTPrompt->GetBinLowEdge(i);
+    Double_t step = hTPrompt->GetBinContent(i+1)-hTPrompt->GetBinContent(i);
+    if(step>5) break;
+  }
+
+ 
+  TString tnamePromptFit;
+  tnamePromptFit.Form("promptFit-%s",tag.Data());
+  TCanvas *cPromptFit = new TCanvas("promptFit","promptFit");
+  TF1 *gpfit = new TF1("g1","gaus",-160,-156);
+  gpfit->SetLineColor(2);
+  hTPrompt->Fit("g1","R");
+  printf(" TPrompt fit parameter = %f +/- %f low edge is %f \n",gpfit->GetParameter(1),gpfit->GetParError(1),zero); 
+  pmtSummary->tZero = gpfit->GetParameter(1);
+
+  summaryFile->Append(gpfit);
+  summaryFile->Append(cPromptFit);
+  // fill neutron spect
+  printf(" qualitySummary calling fillNeutrons with  %zu \n",pmtSummary->vprompt.size());
+  pmtSummary->fillNeutrons();
+  
+  pmtGains->print();
+  pmtSummary->print();
 }
 
 

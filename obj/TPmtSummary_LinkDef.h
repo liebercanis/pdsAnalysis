@@ -4,5 +4,6 @@
 #pragma link C++ class std::vector<Long64_t>+;
 #pragma link C++ class std::vector<Int_t>+;
 #pragma link C++ class std::vector<UShort_t>+;
+#pragma link C++ class std::vector<Double_t>+;
 #endif
 
