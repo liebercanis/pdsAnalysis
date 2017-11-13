@@ -33,7 +33,8 @@ TPdsSummary::TPdsSummary(TString theDirName): TNamed("TPdsSummary","TPdsSummary"
     Int_t day =  getDay();
     Int_t min =  getMin();
     Int_t segment =  getSegment();
-    if( min>=1581 && min <= 1609) {
+    //if( min>=1581 && min <= 1609) {
+    if(  month==7 and day==31) {
       fileList.push_back(fname);
     }
   }
