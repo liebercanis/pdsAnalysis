@@ -45,7 +45,9 @@ public :
   enum {THRESHOLDHIGH=1,THRESHOLDLOW=0};
   //peak finding
   enum {minLength=3,maxHalfLength=100};
- 
+  const Double_t GAMMAPEAK=-628.089;//ysun
+  const Double_t L=23.2, c=0.299792458, nmass=939.565;//ysun
+  
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
 
@@ -100,7 +102,7 @@ public :
    // parameter is top hat window which should be odd 
    std::vector<Double_t> MovingAverageFilter(std::vector<Double_t> signal,Int_t aveN);
    // nearest RF time to hit peak time
-   void getTimeToRF(); 
+   void getTimeToRF(UInt_t board);//ysun 
    
    TTree* pmtTree;
    TPmtEvent* pmtEvent;
