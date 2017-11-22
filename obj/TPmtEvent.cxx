@@ -22,13 +22,15 @@ void TPmtEvent::clear()
   compSec=0;
   compNano=0;
   tRFave=0;
-  tPrompt=0;
   promptLike=0;
   nhits=0;
   hit.clear();	 
   qsum.clear();
   qmax.clear();
-  for(int i=0; i<3; ++i) dtime[i]=0;
+  for(int i=0; i<3; ++i) {
+    dtime[i]=0;
+   tPrompt[i]=0;   
+  }
  }
 
 void TPmtEvent::print(int nHitsToPrint) 

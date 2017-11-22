@@ -11,17 +11,19 @@ TPmtSummary::~TPmtSummary(){}
 
 void TPmtSummary::clear()
 {
-  tZero=0;
+  for(int ib=0; ib<NB; ++ib) tZero[ib]=0;
   tag.clear(); // std string
   vtrig.clear();
   vevent.clear();
   ventry.clear();
   vcompSec.clear();
   vcompNano.clear();
-  vprompt.clear();
   vrf1.clear(); 
   vrf2.clear(); 
   vrf3.clear(); 
+  vprompt1.clear();
+  vprompt2.clear();
+  vprompt3.clear();
   vdtime1.clear(); 
   vdtime2.clear(); 
   vdtime3.clear(); 
@@ -38,7 +40,7 @@ void TPmtSummary::clear()
 
 void TPmtSummary::print()
 {
-   printf(" \n SSSSSSSSSSS summary %s: total events %lu tZero %f SSSSSSSSSSSSS\n",tag.c_str(),vtrig.size(),tZero);
+   printf(" \n SSSSSSSSSSS summary %s: total events %lu tZeros %f,%f,%f SSSSSSSSSSSSS\n",tag.c_str(),vtrig.size(),tZero[0],tZero[1],tZero[2]);
 
     printf(" PDS triggers %i \n",ntrig000);
     Int_t nrfTrig = ntrig555+ntrig444;
