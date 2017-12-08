@@ -68,6 +68,8 @@ class TPmtSummary: public TNamed {
     Double_t gain[NPMT];
     Double_t gain_e[NPMT];
     // vectors for times
+    std::vector<Int_t>     vsec;
+    std::vector<Int_t>     vnano;
     std::vector<Int_t>     vtrig;
     std::vector<Int_t>     vrf1;
     std::vector<Int_t>     vrf2;

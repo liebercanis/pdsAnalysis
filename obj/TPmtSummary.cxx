@@ -13,6 +13,8 @@ void TPmtSummary::clear()
 {
   for(int ib=0; ib<NB; ++ib) tZero[ib]=0;
   tag.clear(); // std string
+  vsec.clear();
+  vnano.clear();
   vtrig.clear();
   vevent.clear();
   ventry.clear();

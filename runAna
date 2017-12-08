@@ -1,15 +1,19 @@
 #!/bin/bash
-if test -z "$1"
-then
-  echo " <tag> (e.g. 07-12-1900_0) <max events> "
-  exit; 
+NMAX=0
+echo "runs on 07-30"
+#echo $(ls pdsData/PDS*.root)
+for name in  `ls pdsData/PDS*.root`  ;do 
+TAG=${name:15:12};
+MONTH=${name:15:2};
+DAY=${name:18:2};
+SEG=${name:21:4};
+
+if [ "$MONTH" -eq "07" ] && [ "$DAY" -eq "30" ]  ;then  
+ echo $TAG $MONTH $DAY $SEG
+ echo root  -q -b "pmtAna.cc++(\"$TAG\",$NMAX)"
+ root -q -b " pmtAna.cc++(\"$TAG\",$NMAX)"
+ else
+ echo "skipping $TAG "
 fi
-TAG=$1
-# default is read all 
-if [ -z "$2" ]; then
-  NMAX=0
-  else 
-  NMAX=$2
-fi
-echo root  -q -b "pmtAna.cc++(\"$TAG\",$NMAX)"
-root -q -b " pmtAna.cc++(\"$TAG\",$NMAX)"
+done
+

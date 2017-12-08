@@ -25,7 +25,7 @@ pdsAna::pdsAna(TFile *f, TString tag, Int_t maxLoop, Int_t firstEntry)
   fFFT = TVirtualFFT::FFT(1, &nFFTSize, "R2C M K");
   fInverseFFT = TVirtualFFT::FFT(1, &nFFTSize, "C2R M K");
 
-  TString summaryFileName = TString("pdsOutput/pmtSummary_")+tag+ TString(".root");
+  TString summaryFileName = TString("pdsOutput/pmtSummary2_")+tag+ TString(".root");
   summaryFile = new TFile(summaryFileName,"recreate");
   summaryFile->cd();
   printf(" opening summary file %s \n",summaryFileName.Data());
@@ -284,6 +284,8 @@ UInt_t pdsAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     pmtEvent->rft23=rftime23;
     pmtEvent->compSec=computer_secIntoEpoch;
     pmtEvent->compNano=computer_nsIntoSec;
+    pmtSummary->vsec.push_back(computer_secIntoEpoch);
+    pmtSummary->vnano.push_back(computer_nsIntoSec);
     // summary info
     pmtSummary->vdtime1.push_back(digitizer_time[0]);
     pmtSummary->vdtime2.push_back(digitizer_time[1]);
