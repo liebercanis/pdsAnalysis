@@ -16,6 +16,7 @@
 #include "TPmtEvent.hxx"
 #include "TPmtSummary.hxx"
 #include "TPmtGains.hxx"
+#include "TPmtAlign.hxx"
 
 #include <TROOT.h>
 #include <TVirtualFFT.h>
@@ -87,7 +88,7 @@ public :
    TBranch        *b_nSamples;   //!
    TBranch        *b_nData;   //!
 
-   pmtAna(TString tag="07-22-1408_0",Int_t maxLoop=0,Int_t firstEntry=0);
+   pmtAna(TString tag="07-31-1518_0",Int_t maxLoop=0,Int_t firstEntry=0);
    virtual ~pmtAna();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
@@ -111,8 +112,6 @@ public :
    TPmtGains *goodGains; // the ones used
    TFile *gainFile;
    
-   
-
    // get trigger type 
    Int_t triggerInfo();
    // trigger type counters
@@ -120,15 +119,14 @@ public :
    std::vector<Int_t> findMaxPeak(std::vector<Double_t> v, Double_t threshold,Double_t sthreshold); 
    std::vector<Int_t> findPeaks(std::vector<Double_t> v, Double_t threshold,Double_t sthreshold); 
    Int_t findHits(Int_t ipmt, Double_t sum,  std::vector<Int_t> peakTime, std::vector<Double_t> ddigi, std::vector<Double_t> ddigiUn, Int_t type); 
-
    Int_t readGainConstants(TString fileName="gainConstants.txt"); // returns number of gains read
+   bool readAlignmentConstants(TString tag,TString fileName="align-low-intensity.root"); // returns true if file and tag found
    double getBaseline(int ipmt ) { return hBase->GetBinContent(ipmt+1); }
-
    std::vector<Int_t> findRFTimes(int ipmt,double& digiMin);
    void ADCFilter(int iB, int iC);
    void qualitySummary(TString tag);
    void getPromptTime();
-   
+
 
    // returns -1 if pmt does not exist 
    // populate 3 boards, each from channel 0-6.  Channel 7 is the RF pulse. 
@@ -154,6 +152,10 @@ public :
      else ipmt = ib+NPMT; 
      return ipmt;
    }
+   // alignments stored as doubles
+   std::vector<Double_t> align0;
+   std::vector<Double_t> align1;
+   std::vector<Double_t> align2;
 
    Double_t baselineNominal[NPMT];
    Double_t gain[NPMT]; //Q = ADC/gain

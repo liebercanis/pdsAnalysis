@@ -9,7 +9,12 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
     printf(" cannot read gain constants file so abort \n");
     return;
   }
+  if(!readAlignmentConstants(tag)) {
+    printf(" cannot find alignment constants file for tag so abort \n");
+    return;
+  }
 
+  return;
 
   fChain=NULL;
   TString fileName = TString("pdsData/PDSout_") + TString(tag) + TString(".root");
@@ -514,6 +519,46 @@ Int_t pmtAna::readGainConstants(TString fileName)
   printf(" \n");
 
   return 21;
+}
+
+bool pmtAna::readAlignmentConstants(TString tag, TString fileName)
+{
+  bool found=0;
+  cout << " reading alignment file " << fileName << " looking for " << tag  << endl;
+  TFile*  fAlignIn = new TFile(fileName, "READ");
+  if(fAlignIn->IsZombie()) {
+    printf(" cannot read file %s\n",fileName.Data());
+    return found;
+  }
+  TTree* atree = (TTree *)fAlignIn->Get("alignTree");
+  if(!atree) {
+    printf(" cannot find alignTree in file %s\n",fileName.Data());
+    fAlignIn->Close();
+    return found;
+  }
+  ULong64_t nEntry = atree->GetEntries();
+  printf(" have %d alignments runs \n",int(nEntry));
+  TPmtAlign* pmtAlign = new TPmtAlign();
+  atree->SetBranchAddress("pmtAlign",&pmtAlign);
+  // get alignments for this tag
+  align0.clear();
+  align1.clear();
+  align2.clear();
+  for(ULong64_t entry=0; entry< nEntry; ++entry){
+    atree->GetEntry(entry);
+    if(pmtAlign->tag==tag) found=true;
+    if(found) { // load constants from file
+      cout << " found alignments for tag " << pmtAlign->tag << " size " << pmtAlign->align0.size() << endl;
+      for(unsigned i=0; i < pmtAlign->align0.size(); ++i) {
+        align0.push_back(pmtAlign->align0[i]);
+        align1.push_back(pmtAlign->align1[i]);
+        align2.push_back(pmtAlign->align2[i]);
+      }
+    }
+    if(found) break;
+  }
+  fAlignIn->Close();
+  return found;
 }
 
 std::vector<Int_t> pmtAna::findRFTimes(int ipmt, double& step) 
