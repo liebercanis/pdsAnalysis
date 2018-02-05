@@ -152,11 +152,8 @@ public :
      else ipmt = ib+NPMT; 
      return ipmt;
    }
-   // alignments stored as doubles
-   std::vector<Double_t> align0;
-   std::vector<Double_t> align1;
-   std::vector<Double_t> align2;
-
+   // by run addative alignmentes
+   Long64_t addAlign1, addAlign2;
    Double_t baselineNominal[NPMT];
    Double_t gain[NPMT]; //Q = ADC/gain
    Double_t egain[NPMT]; //Q = ADC/gain

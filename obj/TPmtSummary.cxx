@@ -36,6 +36,7 @@ void TPmtSummary::clear()
     qmax[ipmt]=0; eqmax[ipmt]=0;
     norm[ipmt]=0; noise[ipmt]=0;
     gain[ipmt]=0; gain_e[ipmt]=0;
+    qrf[ipmt]=0;
   }
   
  }

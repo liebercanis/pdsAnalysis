@@ -60,6 +60,7 @@ class TPmtSummary: public TNamed {
     Int_t ntrig0xx;
     Double_t tZero[NB];
     Double_t qsum[NPMT];
+    Double_t qrf[NPMT]; // summed charged +/- 100 samples around RF time
     Double_t eqsum[NPMT];
     Double_t qmax[NPMT];
     Double_t eqmax[NPMT];
@@ -89,7 +90,7 @@ class TPmtSummary: public TNamed {
     //std::vector<UShort_t>  vgpsDay;
     //std::vector<UShort_t>  vgpsYear;
 
-		ClassDef(TPmtSummary,3)
+		ClassDef(TPmtSummary,4)
 };
 #endif
 

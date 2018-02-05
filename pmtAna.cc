@@ -10,11 +10,9 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
     return;
   }
   if(!readAlignmentConstants(tag)) {
-    printf(" cannot find alignment constants file for tag so abort \n");
-    return;
+    printf(" cannot find alignment constants file for tag %s so abort \n",tag.Data());
+    //return;
   }
-
-  return;
 
   fChain=NULL;
   TString fileName = TString("pdsData/PDSout_") + TString(tag) + TString(".root");
@@ -71,7 +69,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   //
   //ntuples
   ntDigi = new TNtuple("ntDigi"," digi  ","ipmt:idigi:digi"); 
-  ntPmt = new TNtuple("ntPmt"," pmts ","trig:ipmt:tmax:qmax:sum:tmaxUn:qmaxUn:sumUn:noise:base:nhit");
+  ntPmt = new TNtuple("ntPmt"," pmts ","trig:ipmt:tmax:qmax:sum:tmaxUn:qmaxUn:sumUn:noise:base:nhit:qrf");
   ntHit = new TNtuple("ntHit", " hits ","ipmt:sum:time:rftime:length:qpeak:qUnpeak:qhit:qUnhit:fwhm:ratio");
 
   // histos 
@@ -305,6 +303,12 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     pmtSummary->vcompSec.push_back(computer_secIntoEpoch);
     pmtSummary->vcompNano.push_back(computer_nsIntoSec);
 
+    UInt_t rftime[3];
+    rftime[0]=0; if(rftime21.size()>0) rftime[0]=UInt_t(rftime21[0]);
+    rftime[1]=0; if(rftime22.size()>0) rftime[1]=UInt_t(rftime22[0]);
+    rftime[2]=0; if(rftime23.size()>0) rftime[2]=UInt_t(rftime23[0]);
+
+
     for(UInt_t ib=0; ib<NB; ++ib) {
       UInt_t time = digitizer_time[ib];
       //printf(" board %u time %u \n",ib,time);
@@ -356,14 +360,19 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
 
         UInt_t tmax=0;
         double qmax=0;
+        Double_t qrf=0;
         UInt_t tmaxUn=0;
         double qmaxUn=0;
+        UInt_t rfLow=0;
+        if( Int_t(rftime[ipmt])-100 >= 0) rfLow = rftime[ipmt];
         for(UInt_t is=0 ; is<MAXSAMPLES; ++is) {
           double digi = -1.0*(double(digitizer_waveforms[ib][ic][is])/gain[ipmt]-baselineMedian);
           if(digi>qmax) {
             qmax=digi;
             tmax=is+1;
-          }
+          } 
+          // RF window sum 
+          if(is>rfLow&&is<rftime[ipmt]+100) qrf += digi; 
           // witout gain
           double digiUn = -1.0*(double(digitizer_waveforms[ib][ic][is])-baselineMedianUn);
           if(digiUn>qmaxUn) {
@@ -422,7 +431,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
         }
         hQMax[ipmt]->Fill(qmax);
         ntPmt->Fill(double(pmtEvent->trigType),
-            double(ipmt),tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,baselineMedian-baselineNominal[ipmt],nhits);
+            double(ipmt),tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,baselineMedian-baselineNominal[ipmt],nhits,qrf);
         pmtEvent->qmax.push_back(qmax);
         pmtEvent->qsum.push_back(sum);
 
@@ -541,19 +550,29 @@ bool pmtAna::readAlignmentConstants(TString tag, TString fileName)
   TPmtAlign* pmtAlign = new TPmtAlign();
   atree->SetBranchAddress("pmtAlign",&pmtAlign);
   // get alignments for this tag
-  align0.clear();
-  align1.clear();
-  align2.clear();
+  //align0.clear();
+  //align1.clear();
+  //align2.clear();
+  
   for(ULong64_t entry=0; entry< nEntry; ++entry){
     atree->GetEntry(entry);
     if(pmtAlign->tag==tag) found=true;
     if(found) { // load constants from file
-      cout << " found alignments for tag " << pmtAlign->tag << " size " << pmtAlign->align0.size() << endl;
+
+      Long64_t start0 = Long64_t(pmtAlign->start0);
+      Long64_t start1 = Long64_t(pmtAlign->start1);
+      Long64_t start2 = Long64_t(pmtAlign->start2); 
+      addAlign1 = start0-start1;
+      addAlign2 = start0-start2;
+      printf(" readAlignmentConstants: %s  %lli  %lli  %lli  %lli  %lli \n", pmtAlign->tag.c_str(),start0,start1,start2,start0-start1,start0-start2);
+
+      /*
       for(unsigned i=0; i < pmtAlign->align0.size(); ++i) {
         align0.push_back(pmtAlign->align0[i]);
         align1.push_back(pmtAlign->align1[i]);
         align2.push_back(pmtAlign->align2[i]);
       }
+      */
     }
     if(found) break;
   }
@@ -895,7 +914,7 @@ void pmtAna::qualitySummary(TString tag)
   Int_t pmtEntries = (Int_t) ntPmt->GetEntries();
   if(ntPmt->GetEntries()<1) return;
   //cout<<"Number of quality entries: "<<entries<< endl;
-  Float_t ftrig,fpmt,tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,base,nhit;
+  Float_t ftrig,fpmt,tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,base,nhit,qrf;
 
   ntPmt->SetBranchAddress("trig",&ftrig);
   ntPmt->SetBranchAddress("ipmt",&fpmt);
@@ -908,11 +927,13 @@ void pmtAna::qualitySummary(TString tag)
   ntPmt->SetBranchAddress("noise",&noise);
   ntPmt->SetBranchAddress("base",&base);
   ntPmt->SetBranchAddress("nhit",&nhit);
+  ntPmt->SetBranchAddress("qrf",&qrf);
 
   Double_t x[NPMT], y[NPMT], z[NPMT],y2[NPMT],z2[NPMT],ex[NPMT], ey[NPMT], ez[NPMT];
   Double_t norm[NPMT]; 
   Double_t yun[NPMT], zun[NPMT],yun2[NPMT],zun2[NPMT], eyun[NPMT], ezun[NPMT];
   Double_t normun[NPMT]; 
+  Double_t qRF[NPMT];
 
   for(Int_t j=0; j<NPMT; ++j) {
     x[j]=Double_t(j); ex[j]=0;  
@@ -920,6 +941,7 @@ void pmtAna::qualitySummary(TString tag)
     norm[j]=0;
     yun[j]=0; zun[j]=0; yun2[j]=0; zun2[j]=0; eyun[j]=0; ezun[j]=0;
     normun[j]=0;
+    qRF[j]=0;
   }
 
 
@@ -928,6 +950,7 @@ void pmtAna::qualitySummary(TString tag)
     int ipmt = int(fpmt);
     // cosmic cut
     bool cut = tmax>440&&tmax<480&&sum<5000;
+    qRF[ipmt]=Double_t(qrf);
     if(cut) { 
       y[ipmt]+=qmax;
       y2[ipmt]+=pow(qmax,2.);
@@ -962,6 +985,7 @@ void pmtAna::qualitySummary(TString tag)
     pmtSummary->eqmax[j]=ey[j];
     pmtSummary->qsum[j]=z[j];
     pmtSummary->eqsum[j]=ez[j];
+    pmtSummary->qrf[j]=qRF[j];
   }
 
   gROOT->SetStyle("C43");
@@ -1098,7 +1122,7 @@ void pmtAna::qualitySummary(TString tag)
     cPromptFit[ib] = new TCanvas( tcanNamePromptFit.Data(), tcanNamePromptFit.Data());
     gpfit[ib]= new TF1(gpfitName.Data(),"gaus",-160,-156);
     gpfit[ib]->SetLineColor(2);
-    printf("\t\t qualitySummary fitting to %s %s %i \n",gpfitName.Data(),hTPrompt[ib]->GetName(),hTPrompt[ib]->GetEntries());
+    printf("\t\t qualitySummary fitting to %s %s %f \n",gpfitName.Data(),hTPrompt[ib]->GetName(),hTPrompt[ib]->GetEntries());
     hTPrompt[ib]->Fit(gpfitName.Data(),"R");
     printf(" TPrompt fit board %i parameter = %f +/- %f low edge is %f \n",ib,gpfit[ib]->GetParameter(1),gpfit[ib]->GetParError(1),zero); 
     pmtSummary->tZero[ib] = gpfit[ib]->GetParameter(1);

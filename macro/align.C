@@ -25,6 +25,7 @@ Int_t getDay() { return atoi(tag.substr(3,2).c_str()) ;}
 Int_t getMin() { return atoi(tag.substr(6,4).c_str()) ;}
 Int_t getSegment() { return atoi(tag.substr(11,tag.find(".") -1  - 11).c_str());}
 
+
 void bitSum(UInt_t word, std::vector<ULong_t> &bsum) 
 {
   ULong_t lword = ULong_t(word);
@@ -53,11 +54,12 @@ int toPmtNumber(int ib, int ic)
   else ipmt = ib+NPMT; 
   return ipmt;
 }
-
-
+  
 void align()
 {
+
   TString fullDirName;
+
   Double_t STEP= (pow(2.0,32) - pow (2.0,31))/125.0; // step in microseconds
   std::map<int,std::string> timeMap;
   std::vector<ULong_t> bsum1(32);
@@ -100,6 +102,10 @@ void align()
   printf(" total of files in %s is %lu  \n",fullDirName.Data(),timeMap.size()-1);
   if(timeMap.size()<1) return;
 
+  TPmtAlign* pmtAlign  = new TPmtAlign();
+  pmtAlign->makeEventLists(timeMap);
+  return;
+
   //TString inputFileName = TString("../pdsOutput/pdsSummary_")+tag+TString(".root");
   //printf(" opening file %s \n",inputFileName.Data()); 
   //TFile *infile = new TFile(inputFileName);
@@ -108,11 +114,13 @@ void align()
   sumTree->SetBranchAddress("pmtSummary",&pmtSum);
   
 
+  Int_t count =0;
   std::cout << "timeMap contains:\n";
   std::map<int,std::string>::iterator iter;
   for (iter=timeMap.begin(); iter!=timeMap.end(); ++iter) {
     TString addName = fullDirName + TString(iter->second.c_str());
-    cout << "adding to tree " << iter->first << " => " << iter->second << "  file " << addName << endl;
+    cout << "adding to tree " << ++count << " "  << iter->first << " => " << iter->second << "  file " << addName << endl;
+    //cout << count++ << " "  << iter->first << " => " << iter->second << endl;
     sumTree->Add(addName);
   }
   //sumTree = (TTree*) infile->Get("summaryTree");
@@ -125,7 +133,7 @@ void align()
   // printout some events
 
 
-  printf(" size %u \n",timeMap.size());
+  printf(" size %lu \n",timeMap.size());
   /*
   unsigned mapCount=0;
   for (iter=timeMap.begin(); iter!=timeMap.end(); ++iter) {
@@ -138,8 +146,7 @@ void align()
   TFile *alignFile = new TFile(alignFileName,"recreate");
   printf(" opening output file %s \n",alignFileName.Data());
   TTree *alignTree = new TTree("alignTree","alignTree");
-  TPmtAlign* pmtAlign  = new TPmtAlign();
-  alignTree->Branch("pmtAlign",&pmtAlign);
+   alignTree->Branch("pmtAlign",&pmtAlign);
   
   // open ouput file and make some histograms
   TString outputFileName = TString("sum-")+sumTag+TString(".root");
@@ -222,6 +229,11 @@ void align()
   Double_t sortOrf2;
   Double_t sortOrf3;
 
+  Double_t sortRawRf1;
+  Double_t sortRawRf2;
+  Double_t sortRawRf3;
+
+
 
   Double_t sortCtime;
 
@@ -243,13 +255,18 @@ void align()
   trSortTime->Branch("rf2",&sortRf2,"rf2/D");
   trSortTime->Branch("rf3",&sortRf3,"rf3/D");
 
+  trSortTime->Branch("rawrf1",&sortRawRf1,"rawrf1/D");
+  trSortTime->Branch("rawrf2",&sortRawRf2,"rawrf2/D");
+  trSortTime->Branch("rawrf3",&sortRawRf3,"rawrf3/D");
+  
+
   trSortTime->Branch("orf1",&sortOrf1,"orf1/D");
   trSortTime->Branch("orf2",&sortOrf2,"orf2/D");
   trSortTime->Branch("orf3",&sortOrf3,"orf3/D");
 
-  trSortTime->Branch("tr1",&sortRTime1,"tr1/D");
-  trSortTime->Branch("tr2",&sortRTime2,"tr2/D");
-  trSortTime->Branch("tr3",&sortRTime3,"tr3/D");
+  trSortTime->Branch("digiTime0",&sortRTime1,"digiTime0/D");//vdt1
+  trSortTime->Branch("digiTime1",&sortRTime2,"digiTime1/D");
+  trSortTime->Branch("digiTime2",&sortRTime3,"digiTime2/D");
 
   trSortTime->Branch("t1",&sortTime1,"t1/D");  // is st1
   trSortTime->Branch("t2",&sortTime2,"t2/D");
@@ -270,8 +287,6 @@ void align()
   trSortTime->Branch("diffRf3",&sortDiffRf3,"diffRf3/D");
 
 
-
-
   //trSortTime->Print();
   int icolor[NPMT]={1,2,3,4,5,6,7,8,9,1,2,3,4,5,6,7,8,9,1,2,3};
   
@@ -281,6 +296,13 @@ void align()
   std::vector<UInt_t> vdt1;
   std::vector<UInt_t> vdt2;
   std::vector<UInt_t> vdt3;
+
+  // continuous times within run
+  std::vector<Double_t> runt0;
+  std::vector<Double_t> runt1;
+  std::vector<Double_t> runt2;
+
+  
  
   // continuous times
   std::vector<Double_t> st1;
@@ -302,6 +324,11 @@ void align()
   std::vector<Double_t> ot2;
   std::vector<Double_t> ot3;
 
+  // unshifted RF times
+  std::vector<Double_t> rawrf1;
+  std::vector<Double_t> rawrf2;
+  std::vector<Double_t> rawrf3;
+  
   // shifted RF times
   std::vector<Double_t> rf1;
   std::vector<Double_t> rf2;
@@ -327,13 +354,17 @@ void align()
 
  
 
+  Double_t runOffset[3]= {0,0,0};
   Double_t offset[3]= {0,0,0};
   Double_t lastTime[3]={0,0,0};
   Double_t compTime =0;
 
-  Int_t treeNumber=0;
+  Int_t treeNumber=-1;
   UInt_t trigsize=0;
   Double_t check[3]={0,0,0};
+  UInt_t start0=0;
+  UInt_t start1=0;
+  UInt_t start2=0;
 
   pmtAlign->clear();
   
@@ -341,9 +372,11 @@ void align()
     sumTree->GetEntry(entry);
     if(sumTree->GetTreeNumber()!=treeNumber) {
       treeNumber=sumTree->GetTreeNumber();
-      printf("\t opening tree number %i entry %u vtrig size %zu \n",treeNumber,entry, pmtSum->vtrig.size());
+      printf("\t opening tree number %i tag %s entry %u vtrig size %zu \n",treeNumber,pmtSum->tag.c_str(),entry, pmtSum->vtrig.size());
     }
+    pmtAlign->clear();
     std::string tag = pmtSum->tag;
+    pmtAlign->tag=tag;
     Int_t month = pmtSum->getMonth();
     Int_t day = pmtSum->getDay();
     Int_t min = pmtSum->getMin();
@@ -353,13 +386,17 @@ void align()
     ntTrigSum->Fill(time,pmtSum->ntrig555,pmtSum->ntrig5xx,pmtSum->ntrig444,pmtSum->ntrig4xx,pmtSum->ntrig111,pmtSum->ntrig1xx,pmtSum->ntrig000,pmtSum->ntrig0xx);
 
     //if(entry%100==0) printf("...entry %u tag %s  month %i day %i min %i seg %i time %0.f \n",entry,tag.c_str(),month,day,min,seg,time);
-    pmtAlign->clear();
-    pmtAlign->tag=tag;
+
+    runt0.clear(); runt1.clear() ; runt2.clear();
+
+    start0= pmtSum->vdtime1[0];
+    start1= pmtSum->vdtime2[0];
+    start2= pmtSum->vdtime3[0];
 
     for(unsigned itr = 0; itr< pmtSum->vtrig.size(); ++ itr) {
       // calculate computer time
-      compTime += pmtSum->vnano[itr]*1.0E-3; // nano to micro
-      //if(itr%1000==0)  cout << " compTime " << itr << "  " <<  compTime << "  " <<  pmtSum->vnano[itr] << endl;
+      compTime += Double_t(pmtSum->vnano[itr])*1.0E-3; // nano to micro
+      if(compTime<1000)  cout << " compTime " << itr << "  " <<  compTime << "  " <<  pmtSum->vnano[itr] << "  " << pmtSum->vsec[itr] << endl;
       stime.push_back(compTime);
 
       // align the boards at start of run to board 1
@@ -369,8 +406,20 @@ void align()
         Double_t delta3 = (Double_t(pmtSum->vdtime3[0])- lastTime[2])/125.0;
         offset[1] = offset[0] + delta1 - delta2;
         offset[2] = offset[0] + delta1 - delta3;
+        runOffset[1] = runOffset[0] + delta1 - delta2;
+        runOffset[2] = runOffset[0] + delta1 - delta3;
       }
           
+      // int multiples of 4ns 
+      runShift1.push_back(ULong64_t(offset[0]));
+      runShift2.push_back(ULong64_t(offset[1]));
+      runShift3.push_back(ULong64_t(offset[2]));
+      
+      runt0.push_back(Double_t(pmtSum->vdtime1[itr])/125.+offset[0]);
+      runt1.push_back(Double_t(pmtSum->vdtime2[itr])/125.+offset[1]);
+      runt2.push_back(Double_t(pmtSum->vdtime3[itr])/125.+offset[2]);
+
+
       // check to see if we have reached overflow. convert everything to microseconds
       //if(itr>0&& pmtSum->vdtime1[itr-1]-pmtSum->vdtime1[itr]) 
       //cout << " offset " << ( pmtSum->vdtime1[itr-1]-pmtSum->vdtime1[itr])/125 << endl;
@@ -380,6 +429,8 @@ void align()
         check[1]= Double_t(pmtSum->vdtime2[itr-1])- Double_t(pmtSum->vdtime2[itr]);
         check[2]= Double_t(pmtSum->vdtime3[itr-1])- Double_t(pmtSum->vdtime3[itr]);
       }
+
+
       for(int icheck=0; icheck<3; ++icheck) if(check[icheck]> 1.0E9) {
         //cout << " BIG STEP  " << icheck << "  " << itr 
         //<< " check " << check[icheck] << " , " <<  pmtSum->vdtime1[itr-1] << "  " << pmtSum->vdtime1[itr] << endl; 
@@ -396,18 +447,8 @@ void align()
       st2.push_back(Double_t(pmtSum->vdtime2[itr])/125.+offset[1]);
       st3.push_back(Double_t(pmtSum->vdtime3[itr])/125.+offset[2]);
 
-      runShift1.push_back(ULong64_t(offset[0]));
-      runShift2.push_back(ULong64_t(offset[1]));
-      runShift3.push_back(ULong64_t(offset[2]));
-
-      pmtAlign->align0.push_back(offset[0]);
-      pmtAlign->align1.push_back(offset[1]);
-      pmtAlign->align2.push_back(offset[2]);
-
-  
       unsigned ilast = st1.size() -1;
-      //if(ilast>0) if( itr==0 )                    printf(" ------- %i %u %u %E %E %E %E \n",treeNumber,itr,ilast,st1[ilast],st1[ilast-1],
-        //  Double_t(pmtSum->vdtime1[itr]),lastTime[0]);
+
       
       if(ilast>0) if( st1[ilast]-st1[ilast-1]<0 ) printf(" WOOFWOOF %i %u %u %E %E %E %E \n",treeNumber,itr,ilast,st1[ilast],st1[ilast-1],
           Double_t(pmtSum->vdtime1[itr]),lastTime[0]);
@@ -430,22 +471,21 @@ void align()
          trdS3= st3[ilast] - st3[ilast-1];
          trDiff->Fill();
        }
-      
-      if(itr>0) {
-        vdt1.push_back(pmtSum->vdtime1[itr]);
-        vdt2.push_back(pmtSum->vdtime2[itr]);
-        vdt3.push_back(pmtSum->vdtime3[itr]);
-        rf1.push_back(Double_t(pmtSum->vrf1[itr])/250.+Double_t(pmtSum->vdtime1[itr])/125.+offset[0]);
-        rf2.push_back(Double_t(pmtSum->vrf2[itr])/250.+Double_t(pmtSum->vdtime2[itr])/125.+offset[1]);
-        rf3.push_back(Double_t(pmtSum->vrf3[itr])/250.+Double_t(pmtSum->vdtime3[itr])/125.+offset[2]);
-      } else {
-        vdt1.push_back(0);
-        vdt2.push_back(0);
-        vdt3.push_back(0);
-        rf1.push_back(0);
-        rf2.push_back(0);
-        rf3.push_back(0);
-      }
+
+     rf1.push_back(Double_t(pmtSum->vrf1[itr])/250.+Double_t(pmtSum->vdtime1[itr])/125.+offset[0]);
+     rf2.push_back(Double_t(pmtSum->vrf2[itr])/250.+Double_t(pmtSum->vdtime2[itr])/125.+offset[1]);
+     rf3.push_back(Double_t(pmtSum->vrf3[itr])/250.+Double_t(pmtSum->vdtime3[itr])/125.+offset[2]);
+
+     rawrf1.push_back(Double_t(pmtSum->vrf1[itr])/250.);
+     rawrf2.push_back(Double_t(pmtSum->vrf2[itr])/250.);
+     rawrf3.push_back(Double_t(pmtSum->vrf3[itr])/250.);
+     pmtAlign->rf0.push_back(Double_t(pmtSum->vrf1[itr])/250.); 
+     pmtAlign->rf1.push_back(Double_t(pmtSum->vrf2[itr])/250.); 
+     pmtAlign->rf2.push_back(Double_t(pmtSum->vrf3[itr])/250.); 
+     
+     vdt1.push_back(pmtSum->vdtime1[itr]);
+     vdt2.push_back(pmtSum->vdtime2[itr]);
+     vdt3.push_back(pmtSum->vdtime3[itr]);
 
 
       srun.push_back(treeNumber);
@@ -456,7 +496,48 @@ void align()
       lastTime[0]=Double_t(pmtSum->vdtime1[itr]);
       lastTime[1]=Double_t(pmtSum->vdtime2[itr]);
       lastTime[2]=Double_t(pmtSum->vdtime3[itr]);
+    }  // end of looping over triggers for this run
+
+    Double_t rShift[3]={0,0,0};
+    
+    for(unsigned it =0; it< runt0.size(); ++it) {
+
+      Double_t tit0 = runt0[it];
+      Double_t tit1 = runt1[it];
+      Double_t tit2 = runt2[it];
+
+
+      // zero incremental shifts
+      for(int jit=0; jit<3; ++jit) rShift[jit] = 0; 
+          
+      if(tit0==tit1&&tit0==tit2&&tit1==tit2) {
+        pmtAlign->trig.push_back(runt0[it]);
+      } else if(tit0<=tit1&&tit0<=tit2) {
+        rShift[1]+= tit1-tit0;  
+        rShift[2]+= tit2-tit0;  
+        pmtAlign->trig.push_back(runt0[it]);
+      } else if(tit1<=tit0&&tit1<=tit2) {
+        rShift[0]+= tit0-tit1;  
+        rShift[2]+= tit2-tit1;  
+        pmtAlign->trig.push_back(runt1[it]);
+      } else if(tit2<=tit0&&tit2<=tit1) {
+        rShift[0]+= tit0-tit2;  
+        rShift[1]+= tit1-tit2;  
+        pmtAlign->trig.push_back(runt2[it]);
+      }
+
+      if(it<1) printf("  trig %i  %E %E %E %f %f %f \n",it, tit0,tit1,tit2,rShift[0],rShift[1],rShift[2]);
+
+      pmtAlign->align0.push_back(rShift[0]);
+      pmtAlign->align1.push_back(rShift[1]);
+      pmtAlign->align2.push_back(rShift[2]);
     }
+
+    // convert to units of digitization time
+    pmtAlign->start0=start0;
+    pmtAlign->start1=start1;
+    pmtAlign->start2=start2;
+    pmtAlign->print();
     alignTree->Fill();
   }
   for(unsigned it =1; it< st1.size(); ++it) if((st1[it]-st1[it-1])<0) printf(" BLAHBLAH %u %E %E \n",it,st1[it],st1[it-1]);
@@ -506,22 +587,7 @@ void align()
       if(dt3<dt2) {dshift[2]+= dt2-dt3; ++nshift[2]; dt3 += dt2-dt3;}
     }
    
-    /*
-    Double_t ddt1 = st1[it];
-    Double_t ddt2=  st2[it];
-    Double_t ddt3 = st3[it];
-    if(ddt1==0||ddt2==0||ddt3==0) cout << "\t file " << treeNumber << " entry " << it << " " << ddt1 << ", " << ddt2<<  ", " << ddt3 << endl;
-    if(ddt1!=ddt2||ddt1!=ddt3||ddt2!=ddt3) {
-      if(ddt1<ddt2) ddshift[0]+= ddt2-ddt1;
-      if(ddt1<ddt3) ddshift[0]+= ddt3-ddt1; 
-      if(ddt2<ddt1) ddshift[1]+= ddt1-ddt2;
-      if(ddt2<ddt3) ddshift[1]+= ddt3-ddt2;
-      if(ddt3<ddt1) ddshift[2]+= ddt1-ddt3;
-      if(ddt3<ddt2) ddshift[2]+= ddt2-ddt3; 
-    }
-    */
-
- 
+   
     // save incremental shifts 
     // .. convert to microseconds by divide by 125 MHz
     
@@ -593,9 +659,9 @@ void align()
     bitSum(vdt2[it],bsum2);
     bitSum(vdt3[it],bsum3);
 
-    sortRTime1= Double_t(vdt1[it]);
-    sortRTime2= Double_t(vdt2[it]);
-    sortRTime3= Double_t(vdt3[it]);
+    sortRTime1= Double_t(vdt1[it])/125.0;
+    sortRTime2= Double_t(vdt2[it])/125.0;
+    sortRTime3= Double_t(vdt3[it])/125.0;
 
     sortRunShift1=Double_t(runShift1[it]);
     sortRunShift2=Double_t(runShift2[it]);
@@ -637,6 +703,11 @@ void align()
     sortRf1=rf1[it];
     sortRf2=rf2[it];
     sortRf3=rf3[it];
+
+    sortRawRf1=rawrf1[it];
+    sortRawRf2=rawrf2[it];
+    sortRawRf3=rawrf3[it];
+
     sortTime1 = st1[it];
     sortTime2 = st2[it];
     sortTime3 = st3[it];
@@ -666,7 +737,7 @@ void align()
       int utree = int(stree[it]);
       std::string sfile = timeMap[fileTime[utree]];
       unsigned ilocal = it%5000;
-      printf(" LARGESHIFT3  event %u,%u tree %u  %s %E \n",ilocal,sevent[it],utree,sfile.c_str(),sortDiff3);
+      //printf(" LARGESHIFT3  event %u,%u tree %u  %s %E \n",ilocal,sevent[it],utree,sfile.c_str(),sortDiff3);
     }
      
   }
