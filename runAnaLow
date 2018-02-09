@@ -2,18 +2,19 @@
 NMAX=0
 echo "Low intensity runs range from 0731_1518 to 0731_2130. They are all in one day."
 #echo $(ls pdsData/PDS*.root)
+COUNT=0
 for name in  `ls pdsData/PDS*.root`  ;do 
 TAG=${name:15:12};
 MONTH=${name:15:2};
 DAY=${name:18:2};
 SEG=${name:21:4};
-
-if [ "$MONTH" -eq "07" ] && [ "$DAY" -eq "30" ] && [ "$SEG" -gt "1517" ]  && [ "$SEG" -lt "2131" ]  ;then  
+if [ "$MONTH" -eq "07" ] && [ "$DAY" -eq "31" ] && [ "$SEG" -gt "1517" ]  && [ "$SEG" -le "2134" ]  ;then 
+ (( COUNT += 1 ))   
  echo $TAG $MONTH $DAY $SEG
- echo root  -q -b "pmtAna.cc++(\"$TAG\",$NMAX)"
- #root -q -b " pmtAna.cc++(\"$TAG\",$NMAX)"
+ echo "$COUNT root  -q -b pmtAna.cc++(\"$TAG\",$NMAX)"
+ root -q -b " pmtAna.cc++(\"$TAG\",$NMAX)"
  else
  echo "skipping $TAG "
 fi
 done
-
+echo "file count = $COUNT"

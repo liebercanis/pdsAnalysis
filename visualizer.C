@@ -78,8 +78,8 @@ void AddChain(const char *infiles, const char *treename = "pmt_tree") {
     chain->SetBranchAddress("digitizer_waveforms", &waveforms);
     
     if (numfiles == 0) { cout << "No files added" << endl; }
-    chain->ls();
-    
+    cout << " chain has " << chain->GetEntries() << " entries " << endl;
+    //chain->ls();
 }
 
 void ClearChain() {

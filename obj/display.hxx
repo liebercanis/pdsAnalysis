@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <cstdio>
+#include <algorithm>
 #include <TNamed.h>
 #include <TObjArray.h>
 #include <TChainElement.h>
