@@ -44,6 +44,10 @@ public :
   enum {THRESHOLDHIGH=1,THRESHOLDLOW=0};
   //peak finding
   enum {minLength=3,maxHalfLength=100};
+  const double L=23.2;//m
+  const double clight=0.299792458;//m/ns
+  const double nmass=939.565;//MeV
+  const Double_t GAMMAPEAK=-628.089;//ysun
  
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
@@ -99,7 +103,7 @@ public :
    // parameter is top hat window which should be odd 
    std::vector<Double_t> MovingAverageFilter(std::vector<Double_t> signal,Int_t aveN);
    // nearest RF time to hit peak time
-   void getTimeToRF(); 
+   void getTimeToRF(UInt_t board); 
    
    TTree* pmtTree;
    TPmtEvent* pmtEvent;
@@ -122,7 +126,7 @@ public :
    std::vector<Int_t> findRFTimes(int ipmt,double& digiMin);
    void ADCFilter(int iB, int iC);
    void qualitySummary();
-   void getPromptTime();
+   Double_t getPromptTime();
 
 
    // returns -1 if pmt does not exist 
@@ -171,8 +175,8 @@ public :
    TH1D* hSamples[NALLCH];  // include RF
    TH1D* hSamplesSum;
 
-   TH1D* hTPrompt[NB];
-   TH1D* hTPromptEvent[NB];
+   TH1D* hTPrompt;
+   TH1D* hTPromptEvent;
    TDirectory *promptDir;
    TDirectory *histDir;
 

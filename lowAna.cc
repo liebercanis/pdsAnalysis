@@ -86,13 +86,11 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
   TString htitle;
 
 
-  for(UInt_t ib=0; ib<NB; ++ib) {
-    hTPrompt[ib] = new TH1D(Form("TPrompt-b%u",ib)," peak of charge weighted pulse times",MAXSAMPLES+500,-500,MAXSAMPLES);
-    hTPrompt[ib]->SetXTitle(" prompt peak (sample time) ");
+  hTPrompt = new TH1D("TPrompt"," peak of charge weighted pulse times",MAXSAMPLES+500,-500,MAXSAMPLES);
+  hTPrompt->SetXTitle(" prompt peak (sample time) ");
 
-    hTPromptEvent[ib] = new TH1D(Form("TPromptEvent-b%u",ib)," peak of charge weighted pulse times, single event",MAXSAMPLES,0,MAXSAMPLES);
-    hTPromptEvent[ib]->SetXTitle(" prompt peak (sample time) ");
-  }
+  hTPromptEvent = new TH1D("TPromptEvent"," peak of charge weighted pulse times, single event",MAXSAMPLES,0,MAXSAMPLES);
+  hTPromptEvent->SetXTitle(" prompt peak (sample time) ");
 
 
   for(UInt_t ib=0; ib<NB; ++ib) {
@@ -382,7 +380,6 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
         std::vector<Int_t> peakTime = findPeaks(ddigi,THRESHOLDHIGH,THRESHOLDLOW);
         //std::vector<Int_t> peakTime = findMaxPeak(fdigi,8.0*noise,3.0*noise);
         Int_t nhits = findHits(ipmt,sum,peakTime,ddigi,ddigiUn,pmtEvent->trigType);
-        getTimeToRF();
         // now fill in the time since last RF pulse
         hOcc->Fill(ipmt+1,nhits);
         hNHits[ipmt]->Fill(nhits);
@@ -399,30 +396,27 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
         pmtEvent->qsum.push_back(sum);
 
       } // channel loop 
+      getTimeToRF(ib);
     } // board loop 
     /*** after filling hits, get prompt time ****/
-    getPromptTime();
-    pmtSummary->vprompt1.push_back(pmtEvent->tPrompt[0]);
-    pmtSummary->vprompt2.push_back(pmtEvent->tPrompt[1]);
-    pmtSummary->vprompt3.push_back(pmtEvent->tPrompt[2]);
+    pmtEvent->tPrompt=getPromptTime();
+    Double_t tof=pmtEvent->tPrompt*4.0-GAMMAPEAK;//in ns 
+    if(pmtEvent->tPrompt!=-9999 && pmtEvent->trigType==TPmtEvent::TRIG111 && tof>0){
+      pmtSummary->tprompt.push_back(pmtEvent->tPrompt*4.0);//in ns with respect to rf 
+      cout<<jentry<<" tprompt = "<<pmtEvent->tPrompt*4.0<<endl;
+      pmtSummary->tof.push_back(tof);//in ns
+      pmtSummary->ke.push_back(nmass*(sqrt(1/((tof*clight/L)*(tof*clight/L)-1)+1)-1));//in MeV
+    }
+    else
+    {
+      pmtSummary->tprompt.push_back(-9999);//in ns
+      pmtSummary->tof.push_back(-9999);//in ns
+      pmtSummary->ke.push_back(-9999);//in MeV
+    }//ysun
+    //pmtSummary->vprompt.push_back(pmtEvent->tPrompt);
     
     // do each board separatly 
-    for(UInt_t ib=0; ib<NB ;++ib) {
-      vpromptLike.clear();
-      for(Int_t ibin=1; ibin<=  hTPromptEvent[ib]->GetNbinsX()+1; ++ibin) vpromptLike.push_back( hTPromptEvent[ib]->GetBinContent(ibin) );
-      std::sort(vpromptLike.begin(), vpromptLike.end());
-      Double_t pAverage=0;
-      // take average of 100 next highest bins;
-      for(unsigned iv =  vpromptLike.size()-1; iv >= vpromptLike.size() - 11; --iv) pAverage += vpromptLike[iv];
-      pAverage /= 10.0;
-      //printf(" %lld %f %f \n",jentry,pmtEvent->tPrompt,pAverage);
-      pmtEvent->promptLike= pAverage;
-      // save some of these histograms
-      TH1D* hSave = dynamic_cast<TH1D*>(hTPromptEvent[ib]->Clone( Form("TPromptEvent-%u-%lld",ib,jentry)));
-      hSave->SetTitle( Form("TPromptEvent-%u-%lld %.2f %.2f ",ib,jentry,pmtEvent->tPrompt[ib],pAverage));
-      if(jentry<100) promptDir->Append(hSave);
-      hTPrompt[ib]->Fill(pmtEvent->tPrompt[ib]);
-    }
+    hTPrompt->Fill(pmtEvent->tPrompt);
     pmtEvent->nhits= pmtEvent->hit.size();
     pmtTree->Fill();
     //if(jentry%1000==0) printf(" \t\t jentry %lli nhits = %d \n",jentry,pmtEvent->nhits);
@@ -922,40 +916,39 @@ Int_t lowAna::Cut(Long64_t entry)
   return 1;
 }
 
-void lowAna::getPromptTime()
+Double_t lowAna::getPromptTime()
 {
   // fill histogram to find peak bin in event.
-  for(int ib=0; ib<NB; ++ib) hTPromptEvent[ib]->Reset();
-
-  for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {
-    Int_t hitTime = pmtEvent->hit[ihit].peakTime;
-    Double_t qpeak = pmtEvent->hit[ihit].qpeak;
-    Int_t ib,ic;
-    fromPmtNumber(pmtEvent->hit[ihit].ipmt, ib,ic);
-    hTPromptEvent[ib]->Fill(Int_t(hitTime),qpeak);
-  }
-
-  for(UInt_t ib=0; ib<NB; ++ib) pmtEvent->tPrompt[ib] = Double_t(hTPromptEvent[ib]->GetMaximumBin()) - pmtEvent->tRFave; 
+  hTPromptEvent->Reset();
+    
+  std::vector<Int_t> rft;
+  for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {//ysun
+    if(pmtEvent->hit[ihit].ipmt<7) rft = pmtEvent->rft21;//ysun
+    else if(pmtEvent->hit[ihit].ipmt>=7 && pmtEvent->hit[ihit].ipmt<14) rft = pmtEvent->rft22;//ysun
+    else if(pmtEvent->hit[ihit].ipmt>=14 && pmtEvent->hit[ihit].ipmt<21) rft = pmtEvent->rft23;//ysun
+    if(rft.size()>0){
+      for (int i=0;i<pmtEvent->hit[ihit].nsamples;i++) {//ysun
+        hTPromptEvent->Fill(pmtEvent->hit[ihit].tsample[i]-rft[0],pmtEvent->hit[ihit].qsample[i]);//ysun
+      }//ysun
+    }
+  }//ysun
+  //return Double_t(hTPromptEvent->GetMaximumBin())-pmtEvent->tRFave; //ysun
+  if(hTPromptEvent->GetEntries()>0) return Double_t(hTPromptEvent->GetMaximumBin()-MAXSAMPLES); //ysun
+  else return -9999;//ysun
 }
 
 // nearest RF time to hit peak time
-void lowAna::getTimeToRF() 
+void lowAna::getTimeToRF(UInt_t board) 
 {
+  std::vector<Int_t> rft;
+  if(board==0) rft = pmtEvent->rft21;//ysun
+  else if(board==1) rft = pmtEvent->rft22;//ysun
+  else if(board==2) rft = pmtEvent->rft23;//ysun
   for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {
     Int_t time = MAXSAMPLES;
     Int_t hitTime = pmtEvent->hit[ihit].peakTime;
-    for(unsigned i=0; i<pmtEvent->rft21.size() ; ++i) {
-      Int_t tdiff = hitTime - pmtEvent->rft21[i];
-      if(tdiff<0) break;
-      if( tdiff<time ) time=tdiff;
-    }
-    for(unsigned i=0; i<pmtEvent->rft22.size() ; ++i) {
-      Int_t tdiff = hitTime - pmtEvent->rft22[i];
-      if(tdiff<0) break;
-      if( tdiff<time ) time=tdiff;
-    }
-    for(unsigned i=0; i<pmtEvent->rft23.size() ; ++i) {
-      Int_t tdiff = hitTime - pmtEvent->rft23[i];
+    for(unsigned i=0; i<rft.size() ; ++i) {//ysun
+      Int_t tdiff = hitTime - rft[i];//ysun
       if(tdiff<0) break;
       if( tdiff<time ) time=tdiff;
     }
@@ -1053,10 +1046,6 @@ void lowAna::qualitySummary()
   */
  
   // fixed number
-  for(int ib=0; ib<NB; ++ib) pmtSummary->tZero[ib] = 326.0;// TN_PDSSummary_171226.pdf
-  // fill neutron spect
-  printf(" qualitySummary calling fillNeutrons with  %zu \n",pmtSummary->vprompt1.size());
-  pmtSummary->fillNeutrons();
 }
 
 

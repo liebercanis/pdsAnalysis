@@ -11,7 +11,7 @@ TPmtSummary::~TPmtSummary(){}
 
 void TPmtSummary::clear()
 {
-  for(int ib=0; ib<NB; ++ib) tZero[ib]=0;
+  tZero=0;
   tag.clear(); // std string
   vsec.clear();
   vnano.clear();
@@ -29,6 +29,11 @@ void TPmtSummary::clear()
   vdtime1.clear(); 
   vdtime2.clear(); 
   vdtime3.clear(); 
+  tprompt.clear();//ysun
+  tof.clear();//ysun
+  ke.clear();//ysun
+
+  run=0; min=0; seg=0; gammapeak=0;
 
   ntrig555=0; ntrig5xx=0; ntrig444=0; ntrig4xx=0; ntrig111=0;ntrig1xx=0; ntrig000=0; ntrig0xx=0;
   for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
@@ -43,17 +48,19 @@ void TPmtSummary::clear()
 
 void TPmtSummary::print()
 {
-   printf(" \n SSSSSSSSSSS summary %s: total events %lu tZeros %f,%f,%f SSSSSSSSSSSSS\n",tag.c_str(),vtrig.size(),tZero[0],tZero[1],tZero[2]);
+   printf(" \n SSSSSSSSSSS summary %s: total events %lu SSSSSSSSSSSSS ",tag.c_str(),vtrig.size());
+   printf(" n555 %i  n5xx= %i n444= %i n4xx= %i n111= %i n1xx= %i n000= %i n0xx=  %i   \n",
+        ntrig555,ntrig5xx,ntrig444,ntrig4xx,ntrig111,ntrig1xx,ntrig000,ntrig1xx);
 
     printf(" PDS triggers %i \n",ntrig000);
     Int_t nrfTrig = ntrig555+ntrig444;
     printf(" RF  triggers %i \n",nrfTrig);
-    printf(" 555 %i  n5xx= %i n444= %i n4xx= %i n111= %i n1xx= %i n000= %i n0xx=  %i   \n",
-        ntrig555,ntrig5xx,ntrig444,ntrig4xx,ntrig111,ntrig1xx,ntrig000,ntrig1xx);
+   /*
     printf(" \n PMT averages \n");
     for(Int_t j=0; j<NPMT; ++j){ 
       printf(" ipmt %i norm %i qmax %.2f +/- %.2f sum %.2f +/- %.2f gain %.2f +/- %.2f \n",j,int(norm[j]),qmax[j],eqmax[j],qsum[j],eqsum[j],gain[j],gain_e[j]);
     }
+    */
 
     // print out time info
     /*for(unsigned it=0; it<vtrig.size() ; ++it ) {

@@ -27,11 +27,11 @@ void TPmtEvent::clear()
   hit.clear();	 
   qsum.clear();
   qmax.clear();
+  tPrompt=0;   
   for(int i=0; i<3; ++i) {
     dtime[i]=0;
-   tPrompt[i]=0;   
   }
- }
+}
 
 void TPmtEvent::print(int nHitsToPrint) 
 {
