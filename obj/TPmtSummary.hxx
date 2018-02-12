@@ -23,6 +23,7 @@ class TPmtSummary: public TNamed {
 		~TPmtSummary();
 		void clear();
 		void print();
+    void printEvent(unsigned it); 
     Int_t getMonth() { return atoi(tag.substr(0,2).c_str()) ;}
     Int_t getDay() { return atoi(tag.substr(3,2).c_str()) ;}
     Int_t getMin() { return atoi(tag.substr(6,4).c_str()) ;}
@@ -54,8 +55,10 @@ class TPmtSummary: public TNamed {
     Double_t gain[NPMT];
     Double_t gain_e[NPMT];
     // vectors for times
-    std::vector<Int_t>     vsec;
-    std::vector<Int_t>     vnano;
+    std::vector<Int_t>     nhits;  // number of hits in this event
+    std::vector<Int_t>     beamtrig;  
+    std::vector<Double_t>  deltaT; 
+    std::vector<Double_t>  timeToRf; 
     std::vector<Int_t>     vtrig;
     std::vector<Int_t>     vrf1;
     std::vector<Int_t>     vrf2;
@@ -78,7 +81,7 @@ class TPmtSummary: public TNamed {
     //std::vector<UShort_t>  vgpsDay;
     //std::vector<UShort_t>  vgpsYear;
 
-		ClassDef(TPmtSummary,6)
+		ClassDef(TPmtSummary,7)
 };
 #endif
 

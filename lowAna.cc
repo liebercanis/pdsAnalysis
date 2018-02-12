@@ -89,7 +89,7 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
   hTPrompt = new TH1D("TPrompt"," peak of charge weighted pulse times",MAXSAMPLES+500,-500,MAXSAMPLES);
   hTPrompt->SetXTitle(" prompt peak (sample time) ");
 
-  hTPromptEvent = new TH1D("TPromptEvent"," peak of charge weighted pulse times, single event",MAXSAMPLES,0,MAXSAMPLES);
+  hTPromptEvent = new TH1D("TPromptEvent"," peak of charge weighted pulse times, single event",2*MAXSAMPLES,-MAXSAMPLES,MAXSAMPLES);
   hTPromptEvent->SetXTitle(" prompt peak (sample time) ");
 
 
@@ -174,7 +174,6 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
 
   //gainsTree->Fill();
   //gainFile->Write();
-  pmtSummary->print();
   summaryTree->Fill();
 
   outFile->Write();
@@ -252,8 +251,7 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     pmtEvent->rft22=rftime22;
     pmtEvent->rft23=rftime23;
      // summary info
-    pmtSummary->vsec.push_back(computer_secIntoEpoch);
-    pmtSummary->vnano.push_back(computer_nsIntoSec);
+    pmtSummary->gammapeak = GAMMAPEAK;
     pmtSummary->vdtime1.push_back(digitizer_time[0]);
     pmtSummary->vdtime2.push_back(digitizer_time[1]);
     pmtSummary->vdtime3.push_back(digitizer_time[2]);
@@ -401,23 +399,25 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     /*** after filling hits, get prompt time ****/
     pmtEvent->tPrompt=getPromptTime();
     Double_t tof=pmtEvent->tPrompt*4.0-GAMMAPEAK;//in ns 
+    pmtSummary->tof.push_back(tof);//in ns
+    double ke=-9999;
+    double tpromptNs = -9999;
     if(pmtEvent->tPrompt!=-9999 && pmtEvent->trigType==TPmtEvent::TRIG111 && tof>0){
-      pmtSummary->tprompt.push_back(pmtEvent->tPrompt*4.0);//in ns with respect to rf 
-      cout<<jentry<<" tprompt = "<<pmtEvent->tPrompt*4.0<<endl;
-      pmtSummary->tof.push_back(tof);//in ns
-      pmtSummary->ke.push_back(nmass*(sqrt(1/((tof*clight/L)*(tof*clight/L)-1)+1)-1));//in MeV
-    }
-    else
-    {
-      pmtSummary->tprompt.push_back(-9999);//in ns
-      pmtSummary->tof.push_back(-9999);//in ns
-      pmtSummary->ke.push_back(-9999);//in MeV
+      tpromptNs = pmtEvent->tPrompt*4.0;
+      double beta = L/tof/clight;
+      double gamma2 = 1./(1.-beta*beta);
+      if(gamma2>0) ke = nmass*(sqrt(gamma2)-1.0);
     }//ysun
-    //pmtSummary->vprompt.push_back(pmtEvent->tPrompt);
-    
-    // do each board separatly 
+    pmtSummary->ke.push_back(ke);
+    pmtSummary->tprompt.push_back(tpromptNs);//in ns with respect to rf 
     hTPrompt->Fill(pmtEvent->tPrompt);
     pmtEvent->nhits= pmtEvent->hit.size();
+    pmtSummary->nhits.push_back(pmtEvent->nhits);  // number of hits in this event
+    // need to fill these in
+    pmtSummary->beamtrig.push_back(0);  
+    pmtSummary->deltaT.push_back(0); 
+    pmtSummary->timeToRf.push_back(0); 
+    
     pmtTree->Fill();
     //if(jentry%1000==0) printf(" \t\t jentry %lli nhits = %d \n",jentry,pmtEvent->nhits);
     //if(jentry%1000==0) pmtEvent->print();
@@ -811,8 +811,6 @@ Int_t lowAna::triggerInfo()
     ++pmtSummary->ntrig4xx;
   }
   //if(type!= TPmtEvent::TRIG000 && type!=TPmtEvent::TRIG111)
-      printf(" %s %i %i %i %lld %i %i %i %u %u %u  \n", pmtEvent->tag.c_str(),pmtEvent->run,pmtEvent->event,pmtEvent->compSec,pmtEvent->compNano,
-          int(t1),int(t2),int(t3),pmtEvent->dtime[0],pmtEvent->dtime[1],pmtEvent->dtime[2]);
   ntTrig->Fill(float(pmtEvent->run),float(pmtEvent->event),float(r1),float(r2),float(r3),float(t1),float(t2),float(t3) );
   return type;
 }
