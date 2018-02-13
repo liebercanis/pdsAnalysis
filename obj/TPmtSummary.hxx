@@ -3,6 +3,7 @@
 **/
 #ifndef TPMTSUMMARY_DEFINED
 #define TPMTSUMMARY_DEFINED
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <TNamed.h>
@@ -22,7 +23,8 @@ class TPmtSummary: public TNamed {
 		TPmtSummary();
 		~TPmtSummary();
 		void clear();
-		void print();
+    void print(std::ostream &out= std::cout);
+    void printFile();
     void printEvent(unsigned it); 
     Int_t getMonth() { return atoi(tag.substr(0,2).c_str()) ;}
     Int_t getDay() { return atoi(tag.substr(3,2).c_str()) ;}

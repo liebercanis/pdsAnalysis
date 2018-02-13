@@ -11,5 +11,6 @@ void printSummary()
   for(Long64_t entry=0; entry<nruns ; ++entry) {
     tree->GetEntry(entry);
     psum->print();
+    psum->printFile();
   }
 }

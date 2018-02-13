@@ -49,27 +49,38 @@ void TPmtSummary::clear()
   
  }
 
-void TPmtSummary::print()
+void TPmtSummary::printFile()
 {
-   printf(" \n SSSSSSSSSSS summary %s: total events %lu SSSSSSSSSSSSS ",tag.c_str(),vtrig.size());
-   printf(" n555 %i  n5xx= %i n444= %i n4xx= %i n111= %i n1xx= %i n000= %i n0xx=  %i   \n",
-        ntrig555,ntrig5xx,ntrig444,ntrig4xx,ntrig111,ntrig1xx,ntrig000,ntrig1xx);
+  std::string fileName=std::string("pmtSummary-")+tag+std::string(".txt");
+  std::ofstream ofs;
+  ofs.open (fileName, std::ofstream::out );
+  print(ofs);
+  ofs.close();
+}
+
+void TPmtSummary::print(std::ostream &out)
+{
+   char buff[250];
+   sprintf(buff," \n \t\t PDS run summary %s: total events %lu ",tag.c_str(),vtrig.size()); out << buff;
+   sprintf(buff," n555 %i  n5xx= %i n444= %i n4xx= %i n111= %i n1xx= %i n000= %i n0xx=  %i   \n",
+        ntrig555,ntrig5xx,ntrig444,ntrig4xx,ntrig111,ntrig1xx,ntrig000,ntrig1xx); out << buff;
 
     Int_t nrfTrig = ntrig555+ntrig444+ntrig111;
-    printf(" PDS triggers %i  RF  triggers %i \n",ntrig000,nrfTrig);
+    sprintf(buff," PDS triggers %i  RF  triggers %i \n",ntrig000,nrfTrig); out << buff;
     //printf(" gammapeak %f  tZero %f \n",gammapeak,tZero); 
-    printf(" gammapeak %f  \n",gammapeak); 
+    sprintf(buff," gammapeak %f  \n",gammapeak); out << buff; 
 
    
     //printf(" event compSec compNano RF 1 2 3 digi 1 2 3 tprompt tprompt(torf) tof ke trig nhits beamtrig delta_t \n ");
-    printf(" row event entry trig compSec compNano RF 1 2 3 dtime 1 2 3 tprompt timeToRf tof ke trig nhits beamtrig delta_t \n ");
+    sprintf(buff," row event entry trig compSec compNano RF 1 2 3 dtime 1 2 3 tprompt timeToRf tof ke trig nhits beamtrig delta_t \n "); out <<  buff;
 
     for(unsigned it=0; it<vevent.size() ; ++it ) {
-      printf(" %4i  %4i  %4i  %4i  %lld  %5i %5i %5i %9u %9u %9u %10.3f %10.3f %10.3f %10.3f %2d %9d %2d %10.3f  \n ", 
+      sprintf(buff," %4i  %4i  %4i  %4i  %lld  %5i %5i %5i %9u %9u %9u %10.3f %10.3f %10.3f %10.3f %2d %9d %2d %10.3f  \n ", 
           (int) it,  vevent[it], (int) ventry[it],  vcompSec[it], vcompNano[it],
           vrf1[it], vrf2[it], vrf3[it],  vdtime1[it],vdtime2[it], vdtime3[it],
           tprompt[it], timeToRf[it], tof[it] , ke[it], 
           vtrig[it], nhits[it], beamtrig[it],deltaT[it] );  
+      out << buff;
     }
 }
 
