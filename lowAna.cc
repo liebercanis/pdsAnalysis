@@ -397,7 +397,8 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       getTimeToRF(ib);
     } // board loop 
     /*** after filling hits, get prompt time ****/
-    pmtEvent->tPrompt=getPromptTime();
+    pmtEvent->tPrompt = getPromptTime();//ysun
+    pmtEvent->tPromptToRF = getPromptTimeToRF();//ysun
     Double_t tof=pmtEvent->tPrompt*4.0-GAMMAPEAK;//in ns 
     pmtSummary->tof.push_back(tof);//in ns
     double ke=-9999;
@@ -409,14 +410,14 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       if(gamma2>0) ke = nmass*(sqrt(gamma2)-1.0);
     }//ysun
     pmtSummary->ke.push_back(ke);
+    pmtSummary->timeToRf.push_back(pmtEvent->tPromptToRF);//in ns with respect to rf 
     pmtSummary->tprompt.push_back(tpromptNs);//in ns with respect to rf 
+     
     hTPrompt->Fill(pmtEvent->tPrompt);
     pmtEvent->nhits= pmtEvent->hit.size();
     pmtSummary->nhits.push_back(pmtEvent->nhits);  // number of hits in this event
     // need to fill these in
-    pmtSummary->beamtrig.push_back(0);  
     pmtSummary->deltaT.push_back(0); 
-    pmtSummary->timeToRf.push_back(0); 
     
     pmtTree->Fill();
     //if(jentry%1000==0) printf(" \t\t jentry %lli nhits = %d \n",jentry,pmtEvent->nhits);
@@ -913,24 +914,40 @@ Int_t lowAna::Cut(Long64_t entry)
   // returns -1 otherwise.
   return 1;
 }
+Double_t lowAna::getPromptTimeToRF()
+{
+  // fill histogram to find peak bin in event.
+  hTPromptEvent->Reset();
+ std::vector<Int_t> rft;
+
+
+ for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {//ysun
+   if(pmtEvent->hit[ihit].ipmt<7) rft = pmtEvent->rft21;//ysun
+   else if(pmtEvent->hit[ihit].ipmt>=7 && pmtEvent->hit[ihit].ipmt<14) rft = pmtEvent->rft22;//ysun
+   else if(pmtEvent->hit[ihit].ipmt>=14 && pmtEvent->hit[ihit].ipmt<21) rft = pmtEvent->rft23;//ysun
+   if(rft.size()>0){
+     for (int i=0;i<pmtEvent->hit[ihit].nsamples;i++) {//ysun
+       hTPromptEvent->Fill(pmtEvent->hit[ihit].tsample[i]-rft[0],pmtEvent->hit[ihit].qsample[i]);//ysun
+     }//ysun
+   }
+ }//ysun
+ //return Double_t(hTPromptEvent->GetMaximumBin())-pmtEvent->tRFave; //ysun
+ if(hTPromptEvent->GetEntries()>0) return Double_t(hTPromptEvent->GetMaximumBin()-MAXSAMPLES); //ysun
+ else return -9999;//ysun
+}
+
 
 Double_t lowAna::getPromptTime()
 {
   // fill histogram to find peak bin in event.
   hTPromptEvent->Reset();
-    
   std::vector<Int_t> rft;
+  
   for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {//ysun
-    if(pmtEvent->hit[ihit].ipmt<7) rft = pmtEvent->rft21;//ysun
-    else if(pmtEvent->hit[ihit].ipmt>=7 && pmtEvent->hit[ihit].ipmt<14) rft = pmtEvent->rft22;//ysun
-    else if(pmtEvent->hit[ihit].ipmt>=14 && pmtEvent->hit[ihit].ipmt<21) rft = pmtEvent->rft23;//ysun
-    if(rft.size()>0){
-      for (int i=0;i<pmtEvent->hit[ihit].nsamples;i++) {//ysun
-        hTPromptEvent->Fill(pmtEvent->hit[ihit].tsample[i]-rft[0],pmtEvent->hit[ihit].qsample[i]);//ysun
-      }//ysun
-    }
+    for (int i=0;i<pmtEvent->hit[ihit].nsamples;i++) {//ysun
+      hTPromptEvent->Fill(pmtEvent->hit[ihit].tsample[i],pmtEvent->hit[ihit].qsample[i]);//ysun
+    }//ysun
   }//ysun
-  //return Double_t(hTPromptEvent->GetMaximumBin())-pmtEvent->tRFave; //ysun
   if(hTPromptEvent->GetEntries()>0) return Double_t(hTPromptEvent->GetMaximumBin()-MAXSAMPLES); //ysun
   else return -9999;//ysun
 }

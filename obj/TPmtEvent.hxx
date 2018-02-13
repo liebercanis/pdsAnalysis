@@ -35,6 +35,7 @@ class TPmtEvent: public TNamed {
     Long64_t compNano;
     UInt_t  dtime[3];   // caen digitizer time 
     Double_t tPrompt; // one for each board
+    Double_t tPromptToRF;
     Double_t tRFave;
     Double_t promptLike;
     std::vector<Double_t> qmax;

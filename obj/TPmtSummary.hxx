@@ -31,6 +31,13 @@ class TPmtSummary: public TNamed {
     Int_t getMin() { return atoi(tag.substr(6,4).c_str()) ;}
     Int_t getSegment() { return atoi(tag.substr(11,tag.find(".") -1  - 11).c_str());}
 
+    Int_t isBeamTrig(Int_t it) {
+      Double_t aveRf = Double_t(vrf1[it]+vrf2[it]+vrf3[it])/3.0;
+      Int_t beamtrig =0;
+      if(aveRf > 495 && aveRf < 500) beamtrig=1.0;
+      return beamtrig;
+    }
+
    // data elements
     Int_t run;
     Int_t min;
@@ -58,7 +65,6 @@ class TPmtSummary: public TNamed {
     Double_t gain_e[NPMT];
     // vectors for times
     std::vector<Int_t>     nhits;  // number of hits in this event
-    std::vector<Int_t>     beamtrig;  
     std::vector<Double_t>  deltaT; 
     std::vector<Double_t>  timeToRf; 
     std::vector<Int_t>     vtrig;

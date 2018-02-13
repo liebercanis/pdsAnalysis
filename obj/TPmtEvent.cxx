@@ -28,6 +28,7 @@ void TPmtEvent::clear()
   qsum.clear();
   qmax.clear();
   tPrompt=0;   
+  tPromptToRF=0;
   for(int i=0; i<3; ++i) {
     dtime[i]=0;
   }

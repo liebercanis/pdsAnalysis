@@ -127,6 +127,8 @@ public :
    void ADCFilter(int iB, int iC);
    void qualitySummary();
    Double_t getPromptTime();
+   Double_t getPromptTimeToRF();
+   Double_t getTimeToRF();
 
 
    // returns -1 if pmt does not exist 

@@ -31,7 +31,6 @@ void TPmtSummary::clear()
   tof.clear();//ysun
   ke.clear();//ysun
   nhits.clear();  // number of hits in this event
-  beamtrig.clear();  
   deltaT.clear(); 
   timeToRf.clear(); 
   
@@ -75,11 +74,12 @@ void TPmtSummary::print(std::ostream &out)
     sprintf(buff," row event entry trig compSec compNano RF 1 2 3 dtime 1 2 3 tprompt timeToRf tof ke trig nhits beamtrig delta_t \n "); out <<  buff;
 
     for(unsigned it=0; it<vevent.size() ; ++it ) {
+ 
       sprintf(buff," %4i  %4i  %4i  %4i  %lld  %5i %5i %5i %9u %9u %9u %10.3f %10.3f %10.3f %10.3f %2d %9d %2d %10.3f  \n ", 
           (int) it,  vevent[it], (int) ventry[it],  vcompSec[it], vcompNano[it],
           vrf1[it], vrf2[it], vrf3[it],  vdtime1[it],vdtime2[it], vdtime3[it],
           tprompt[it], timeToRf[it], tof[it] , ke[it], 
-          vtrig[it], nhits[it], beamtrig[it],deltaT[it] );  
+          vtrig[it], nhits[it], isBeamTrig(it) ,deltaT[it] );  
       out << buff;
     }
 }
@@ -91,7 +91,7 @@ void TPmtSummary::printEvent(unsigned it)
       (int) it,  vevent[it], (int) ventry[it],  vcompSec[it], vcompNano[it],
       vrf1[it], vrf2[it], vrf3[it],  vdtime1[it],vdtime2[it], vdtime3[it],
       tprompt[it], timeToRf[it], tof[it] , ke[it], 
-      vtrig[it], nhits[it], beamtrig[it],deltaT[it] );  
+      vtrig[it], nhits[it], isBeamTrig(it),deltaT[it] );  
 }
 
 
