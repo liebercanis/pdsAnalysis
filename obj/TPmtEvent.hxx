@@ -38,6 +38,7 @@ class TPmtEvent: public TNamed {
     
     Double_t tRFave;
     Double_t tPrompt;
+    Double_t tPromptToRF;
     Double_t promptLike;
     std::vector<Double_t> qmax;
     std::vector<Double_t> qsum;

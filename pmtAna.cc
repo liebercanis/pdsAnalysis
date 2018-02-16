@@ -1,22 +1,27 @@
-#include "pmtAna.hh"
+#include "pmtAnaYsun.hh"
 #include <TF1.h>
 #include <TPaveStats.h>
 #include <TText.h>
 
 pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
 {
+  maxLoop=3;
+  tag = TString("07-31-1518_0");
+  cout << " XXXXXXXXXXXXX " << tag << endl;
   if(readGainConstants()==0) {
     printf(" cannot read gain constants file so abort \n");
     return;
   }
- 
-
+  
+  TString str ( tag(6,4) );//ysun 
+  int run = str.Atoi();//ysun
+  
   fChain=NULL;
   TString fileName = TString("pdsData/PDSout_") + TString(tag) + TString(".root");
   printf(" looking for file %s\n",fileName.Data());
   TFile *f = new TFile(fileName,"readonly");
   if(f->IsZombie()) {
-    printf(" couldnt open file %s so abort.\n",fileName.Data());
+    printf(" couldnt open file %s tag %s  so abort.\n",fileName.Data(),tag.Data());
     return;
   }
   TTree *tree;
@@ -168,7 +173,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   //gDirectory->ls();
 
   /***  loop over entries zero = all ***/
-  UInt_t nLoop = Loop(maxLoop,firstEntry);
+  UInt_t nLoop = Loop(maxLoop,firstEntry,run);
   qualitySummary(tag);
 
  
@@ -177,7 +182,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   gainFile->Write();
   summaryTree->Fill();
   summaryFile->Write();
-  
+  pmtSummary->print(); 
   outFile->Write();
   printf(" wrote output file %s \n",outFile->GetName());
 
@@ -238,14 +243,13 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
 
 }
 
-
 pmtAna::~pmtAna()
 {
    if (!fChain) return;
    delete fChain->GetCurrentFile();
 }
 
-UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
+UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry, Int_t run)
 {
    if (fChain == 0) return 0;
 
@@ -268,7 +272,396 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
    for (Long64_t jentry=firstEntry; jentry<nloop+firstEntry; jentry++) {
       Long64_t ientry = LoadTree(jentry);
       if (ientry < 0) { printf(" load tree returns %lld\n",ientry); break;}
-      nbytes += fChain->GetEntry(jentry);
+      
+      
+//###############################################################################################    
+      float label=run+jentry/10000.;
+      if(label>1614.20315 && label<1646.35595){//ysun
+	//if(jentry<nentries-4){
+	nbytes += fChain->GetEntry(jentry+4);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<2; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else if(label>1646.35605 && label<1646.35625){//ysun
+           continue;
+      }//ysun
+      else if(label>1646.35625 && label<1714.20585){//ysun
+	nbytes += fChain->GetEntry(jentry+2);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry-2);//ysun
+	for(UInt_t ib=1; ib<2; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<1; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else if(label>1714.20585 && label<1742.20955){//ysun
+	nbytes += fChain->GetEntry(jentry+4);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry-2);//ysun
+	for(UInt_t ib=1; ib<2; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<1; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else if(label>1742.20955 && label<1756.03475){//ysun
+	nbytes += fChain->GetEntry(jentry+5);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry-2);//ysun
+	for(UInt_t ib=1; ib<2; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<1; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else if(label>1756.03475 && label<1853.44925){//ysun
+	nbytes += fChain->GetEntry(jentry+6);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry-1);//ysun
+	for(UInt_t ib=1; ib<2; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<1; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else if(label>1853.44925 && label<1858.13005){//ysun
+	nbytes += fChain->GetEntry(jentry+8);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry+5);//ysun
+	for(UInt_t ib=1; ib<2; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<1; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else if(label>1858.13005 && label<1910.41105){//ysun
+	nbytes += fChain->GetEntry(jentry+7);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry+6);//ysun
+	for(UInt_t ib=1; ib<2; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<1; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else if(label>1910.41105 && label<2020.10615){//ysun
+	nbytes += fChain->GetEntry(jentry+8);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry+6);//ysun
+	for(UInt_t ib=1; ib<2; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<1; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else if(label>2020.10615 && label<2020.26305){//ysun
+	nbytes += fChain->GetEntry(jentry+8);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry+5);//ysun
+	for(UInt_t ib=1; ib<2; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<1; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else if(label>2020.26305 && label<2025.04635){//ysun
+	nbytes += fChain->GetEntry(jentry+8);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry+4);//ysun
+	for(UInt_t ib=1; ib<2; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<1; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else if(label>2025.04635 && label<2054.02075){//ysun
+	nbytes += fChain->GetEntry(jentry+10);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry+5);//ysun
+	for(UInt_t ib=1; ib<2; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<1; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else if(label>2054.02075 && label<2059.08525){//ysun
+	nbytes += fChain->GetEntry(jentry+10);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry+4);//ysun
+	for(UInt_t ib=1; ib<2; ++ib) {//ysun
+	digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<1; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else if(label>2059.08525){//ysun
+	nbytes += fChain->GetEntry(jentry+11);//ysun
+	for(UInt_t ib=2; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry+4);//ysun
+	for(UInt_t ib=1; ib<2; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<1; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }//ysun
+      else{
+	nbytes += fChain->GetEntry(jentry);
+	for(UInt_t ib=0; ib<NB; ++ib) {//ysun
+	  digitizer_time_shifted[ib]=digitizer_time[ib];
+	  for(UInt_t ic=0; ic<NC; ++ic) {//ysun
+	    for (UInt_t is=0; is<MAXSAMPLES; ++is) {//ysun
+	      digitizer_waveforms_shifted[ib][ic][is]=digitizer_waveforms[ib][ic][is];//ysun
+	    }//ysun
+	  }//ysun
+	}//ysun
+      }
+//###############################################################################################  
+     
+      
       if(jentry%100==0) printf(" \t.... %lld nbytes %lld pmtTree entries %lld \n",jentry,nbytes,pmtTree->GetEntries());
       // clear the event
       pmtEvent->clear();
@@ -288,17 +681,18 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       pmtEvent->compNano=computer_nsIntoSec;
       pmtSummary->gammapeak=GAMMAPEAK;//ysun
       // summary info
-      pmtSummary->vdtime1.push_back(digitizer_time[0]);
-      pmtSummary->vdtime2.push_back(digitizer_time[1]);
-      pmtSummary->vdtime3.push_back(digitizer_time[2]);
+      pmtSummary->vdtime1.push_back(digitizer_time_shifted[0]);
+      pmtSummary->vdtime2.push_back(digitizer_time_shifted[1]);
+      pmtSummary->vdtime3.push_back(digitizer_time_shifted[2]);
       pmtSummary->vtrig.push_back(pmtEvent->trigType);
       pmtSummary->vevent.push_back(event_number);
       pmtSummary->ventry.push_back(jentry);    
       pmtSummary->vcompSec.push_back(computer_secIntoEpoch);
       pmtSummary->vcompNano.push_back(computer_nsIntoSec);
+
       
       for(UInt_t ib=0; ib<NB; ++ib) {
-        UInt_t time = digitizer_time[ib];
+        UInt_t time = digitizer_time_shifted[ib];
         //printf(" board %u time %u \n",ib,time);
         for(UInt_t ic=0; ic<NC; ++ic) {
 
@@ -320,8 +714,8 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
 
           // Find the sample median and it's "sigma".
           for (UInt_t is=0; is<MAXSAMPLES; ++is) {
-            sdigi.push_back(double(digitizer_waveforms[ib][ic][is])/gain[ipmt]);
-            sdigiUn.push_back(double(digitizer_waveforms[ib][ic][is]));
+            sdigi.push_back(double(digitizer_waveforms_shifted[ib][ic][is])/gain[ipmt]);
+            sdigiUn.push_back(double(digitizer_waveforms_shifted[ib][ic][is]));
           }
 
           std::sort(sdigi.begin(), sdigi.end());
@@ -351,13 +745,13 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           UInt_t tmaxUn=0;
           double qmaxUn=0;
           for(UInt_t is=0 ; is<MAXSAMPLES; ++is) {
-            double digi = -1.0*(double(digitizer_waveforms[ib][ic][is])/gain[ipmt]-baselineMedian);
+            double digi = -1.0*(double(digitizer_waveforms_shifted[ib][ic][is])/gain[ipmt]-baselineMedian);
             if(digi>qmax) {
               qmax=digi;
               tmax=is+1;
             }
             // witout gain
-            double digiUn = -1.0*(double(digitizer_waveforms[ib][ic][is])-baselineMedianUn);
+            double digiUn = -1.0*(double(digitizer_waveforms_shifted[ib][ic][is])-baselineMedianUn);
             if(digiUn>qmaxUn) {
               qmaxUn=digiUn;
               tmaxUn=is+1;
@@ -422,20 +816,35 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       } // board loop 
       /*** after filling hits, get prompt time ****/
       pmtEvent->tPrompt = getPromptTime();//ysun
-      Double_t tof=pmtEvent->tPrompt*4-GAMMAPEAK;//in ns
-      
-      if(pmtEvent->tPrompt!=-9999 && pmtEvent->trigType==TPmtEvent::TRIG111 && tof>0){
-      pmtSummary->tprompt.push_back(pmtEvent->tPrompt*4);//in ns with respect to rf 
-      cout<<jentry<<" tprompt = "<<pmtEvent->tPrompt*4<<endl;
-      pmtSummary->tof.push_back(tof);//in ns
-      pmtSummary->ke.push_back(nmass*(sqrt(1/((tof*c/L)*(tof*c/L)-1)+1)-1));//in MeV
+      pmtEvent->tPromptToRF = getPromptTimeToRF();//ysun
+      cout << "  tPrompt " <<  pmtEvent->tPrompt << " tPromptToRF " <<  pmtEvent->tPromptToRF << endl; 
+
+      Double_t promptt=pmtEvent->tPromptToRF*4;//in ns
+      Double_t tof=promptt-GAMMAPEAK+L/c;//in ns
+
+      Double_t kenergy = (nmass*(sqrt(1/((tof*c/L)*(tof*c/L)-1)+1)-1));
+      cout << " yakyak tprompt " << promptt  << " tof " << tof << " ke " << kenergy <<  endl;
+     
+      if (pmtEvent->tPromptToRF==-9999){
+        pmtSummary->timeToRf.push_back(-9999);//in ns
+        pmtSummary->tof.push_back(-9999);//in ns
+        pmtSummary->ke.push_back(-9999);//in MeV
       }
-      else{
-      pmtSummary->tprompt.push_back(-9999);//in ns
-      pmtSummary->tof.push_back(-9999);//in ns
-      pmtSummary->ke.push_back(-9999);//in MeV
-      }//ysun
-      pmtSummary->vprompt.push_back(pmtEvent->tPrompt);
+      else {
+        pmtSummary->timeToRf.push_back(promptt);//in ns with respect to rf
+        if(pmtEvent->trigType==TPmtEvent::TRIG111 && tof>0){
+          pmtSummary->tof.push_back(tof);//in ns
+          pmtSummary->ke.push_back(nmass*(sqrt(1/((tof*c/L)*(tof*c/L)-1)+1)-1));//in MeV
+        }
+        else{
+          pmtSummary->timeToRf.push_back(-9999);//in ns with respect to rf
+          pmtSummary->tof.push_back(-9999);//in ns
+          pmtSummary->ke.push_back(-9999);//in MeV
+        }
+      }
+      
+      pmtSummary->tprompt.push_back(pmtEvent->tPrompt*4);//in ns
+      //ysun
       vpromptLike.clear();
       for(Int_t ibin=1; ibin<=  hTPromptEvent->GetNbinsX()+1; ++ibin) vpromptLike.push_back( hTPromptEvent->GetBinContent(ibin) );
       std::sort(vpromptLike.begin(), vpromptLike.end());
@@ -456,6 +865,8 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       if(jentry%1000==0) pmtEvent->print();
    }   // end loop over entries
    printf(" finised looping  %u pmtTree size %llu \n",nloop,pmtTree->GetEntries());
+   pmtSummary->nhits.push_back( pmtEvent->nhits);
+   pmtSummary->deltaT.push_back(0);
    // normalize
    for(Int_t ipmt=0; ipmt<NALLCH; ++ipmt) {
      //UInt_t sampleNorm = hSamples[ipmt]->GetEntries();
@@ -529,15 +940,15 @@ std::vector<Int_t> pmtAna::findRFTimes(int ipmt, double& step)
 
   // find baseline
   std::vector<UShort_t> udigi; 
-  for (UInt_t is=0; is<MAXSAMPLES; ++is) udigi.push_back(digitizer_waveforms[ib][ic][is]);
+  for (UInt_t is=0; is<MAXSAMPLES; ++is) udigi.push_back(digitizer_waveforms_shifted[ib][ic][is]);
   std::sort(udigi.begin(), udigi.end());
   UShort_t baseline = udigi[0.5*double(MAXSAMPLES)];
   
   // looking for negative values.  
   UShort_t digiMin=MAXADC;
   for (UInt_t is=0; is<MAXSAMPLES; ++is) {
-    digitizer_waveforms[ib][ic][is]=TMath::Min( baseline , digitizer_waveforms[ib][ic][is]);
-    if(digitizer_waveforms[ib][ic][is]<digiMin) digiMin=digitizer_waveforms[ib][ic][is];
+    digitizer_waveforms_shifted[ib][ic][is]=TMath::Min( baseline , digitizer_waveforms_shifted[ib][ic][is]);
+    if(digitizer_waveforms_shifted[ib][ic][is]<digiMin) digiMin=digitizer_waveforms_shifted[ib][ic][is];
   }
   
   step = double(digiMin) - double(baseline);
@@ -546,7 +957,7 @@ std::vector<Int_t> pmtAna::findRFTimes(int ipmt, double& step)
   // pick off start of rising edge
   bool isRF=false;
   for (UInt_t is=0; is<MAXSAMPLES; ++is){
-    double digi = double(digitizer_waveforms[ib][ic][is]) - double(baseline);
+    double digi = double(digitizer_waveforms_shifted[ib][ic][is]) - double(baseline);
     //histoDraw[iB][iC]->Fill(iS+0.5, ((1.*waveforms[iB][iC][iS]-baseline)*offsetstepADC/(1.*ADCrange+1.)+offset) );
     //int ADCrange = 4095;
     //offsetstepADC = 50.
@@ -760,7 +1171,7 @@ TH1D* pmtAna::FFTFilter(Int_t ipmt)
   fromPmtNumber(ipmt,ib,ic);
   printf(" called FFTFilter pmt %i board %i channel %i \n",ipmt,ib,ic);
   for(int is =0; is<nFFTSize; ++is) {
-    fFFT->SetPoint(is, digitizer_waveforms[ib][ic][is]);
+    fFFT->SetPoint(is, digitizer_waveforms_shifted[ib][ic][is]);
   }
 
   for (int i = 1; i<nFFTSize/2; ++i) {
@@ -803,7 +1214,7 @@ Int_t pmtAna::triggerInfo()
   if(rftime23.size()>0) {rft += double(rftime23[0]); ++nrftimes; }
   if( nrftimes>0) rft /= double(nrftimes);
   pmtEvent->tRFave=rft;
-  for(int itime=0; itime<NB; ++itime)  pmtEvent->dtime[itime] = digitizer_time[itime];
+  for(int itime=0; itime<NB; ++itime)  pmtEvent->dtime[itime] = digitizer_time_shifted[itime];
 
 
   //UInt_t totalTimes = rftime21.size()+rftime21.size()+rftime21.size();
@@ -924,7 +1335,7 @@ void pmtAna::qualitySummary(TString tag)
       pmtSummary->qsum[j]=z[j];
       pmtSummary->eqsum[j]=ez[j];
     }
-    
+    return; 
     gROOT->SetStyle("C43");
     gStyle->SetOptLogy(1);
     gStyle->SetOptStat(0000);
@@ -1063,7 +1474,7 @@ void pmtAna::qualitySummary(TString tag)
   summaryFile->Append(gpfit);
   summaryFile->Append(cPromptFit);
   // fill neutron spect
-  printf(" qualitySummary calling fillNeutrons with  %zu \n",pmtSummary->vprompt.size());
+  //printf(" qualitySummary calling fillNeutrons with  %zu \n",pmtSummary->vprompt.size());
   //pmtSummary->fillNeutrons();//ysun
   
   pmtGains->print();
@@ -1074,12 +1485,12 @@ void pmtAna::qualitySummary(TString tag)
 void pmtAna::ADCFilter(int iB, int iC) 
 {
   for (int is = 0; is<MAXSAMPLES; ++is) {
-    if (digitizer_waveforms[iB][iC][is] > MAXADC) {
-      if (is > 0) { digitizer_waveforms[iB][iC][is] = digitizer_waveforms[iB][iC][is-1];}
+    if (digitizer_waveforms_shifted[iB][iC][is] > MAXADC) {
+      if (is > 0) { digitizer_waveforms_shifted[iB][iC][is] = digitizer_waveforms_shifted[iB][iC][is-1];}
       else {
         int is2 = 0;
-        while (digitizer_waveforms[iB][iC][is2] > MAXADC) {
-          digitizer_waveforms[iB][iC][0] = digitizer_waveforms[iB][iC][is2+1];
+        while (digitizer_waveforms_shifted[iB][iC][is2] > MAXADC) {
+          digitizer_waveforms_shifted[iB][iC][0] = digitizer_waveforms_shifted[iB][iC][is2+1];
           ++is2;
         }
       }
@@ -1170,6 +1581,41 @@ Int_t pmtAna::Cut(Long64_t entry)
    return 1;
 }
 
+Double_t pmtAna::getPromptTimeToRF()
+{
+  // fill histogram to find peak bin in event.
+  hTPromptEvent->Reset();
+  /*
+  for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {
+    Int_t hitTime = pmtEvent->hit[ihit].peakTime;
+    Double_t qpeak = pmtEvent->hit[ihit].qpeak;
+    hTPromptEvent->Fill(Int_t(hitTime),qpeak);
+  }
+  return Double_t(hTPromptEvent->GetMaximumBin())-pmtEvent->tRFave; */ //ysun
+  
+    std::vector<Int_t> rft;
+ 
+    Int_t rft0=0;
+  
+    for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {//ysun
+      if(pmtEvent->hit[ihit].ipmt<7) rft = pmtEvent->rft21;//ysun
+      else if(pmtEvent->hit[ihit].ipmt>=7 && pmtEvent->hit[ihit].ipmt<14) rft = pmtEvent->rft22;//ysun
+      else if(pmtEvent->hit[ihit].ipmt>=14 && pmtEvent->hit[ihit].ipmt<21) rft = pmtEvent->rft23;//ysun
+      if(rft.size()>0){
+        rft0= rft[0];
+        for (int i=0;i<pmtEvent->hit[ihit].nsamples;i++) {//ysun
+          hTPromptEvent->Fill(pmtEvent->hit[ihit].tsample[i]-rft[0],pmtEvent->hit[ihit].qsample[i]);//ysun
+        }//ysun
+      }
+    }//ysun
+    //return Double_t(hTPromptEvent->GetMaximumBin())-pmtEvent->tRFave; //ysun
+   Double_t ptime=-9999;
+   if(hTPromptEvent->GetEntries()>0) ptime = Double_t(hTPromptEvent->GetMaximumBin()-MAXSAMPLES);
+  cout << " rft " << rft0 << "  " << ptime <<  endl;
+  if(hTPromptEvent->GetEntries()>0) return Double_t(hTPromptEvent->GetMaximumBin()-MAXSAMPLES); //ysun
+  else return -9999;//ysun
+}
+
 Double_t pmtAna::getPromptTime()
 {
   // fill histogram to find peak bin in event.
@@ -1186,14 +1632,17 @@ Double_t pmtAna::getPromptTime()
   
   
     for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {//ysun
-      if(pmtEvent->hit[ihit].ipmt<7) rft = pmtEvent->rft21;//ysun
+      /*if(pmtEvent->hit[ihit].ipmt<7) rft = pmtEvent->rft21;//ysun
       else if(pmtEvent->hit[ihit].ipmt>=7 && pmtEvent->hit[ihit].ipmt<14) rft = pmtEvent->rft22;//ysun
       else if(pmtEvent->hit[ihit].ipmt>=14 && pmtEvent->hit[ihit].ipmt<21) rft = pmtEvent->rft23;//ysun
 	if(rft.size()>0){
 	  for (int i=0;i<pmtEvent->hit[ihit].nsamples;i++) {//ysun
 	    hTPromptEvent->Fill(pmtEvent->hit[ihit].tsample[i]-rft[0],pmtEvent->hit[ihit].qsample[i]);//ysun
 	  }//ysun
-	}
+	}*/
+	for (int i=0;i<pmtEvent->hit[ihit].nsamples;i++) {//ysun
+	    hTPromptEvent->Fill(pmtEvent->hit[ihit].tsample[i],pmtEvent->hit[ihit].qsample[i]);//ysun
+	}//ysun
     }//ysun
   //return Double_t(hTPromptEvent->GetMaximumBin())-pmtEvent->tRFave; //ysun
   if(hTPromptEvent->GetEntries()>0) return Double_t(hTPromptEvent->GetMaximumBin()-MAXSAMPLES); //ysun

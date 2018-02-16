@@ -65,6 +65,8 @@ public :
    UInt_t          digitizer_evNum[NB];
    UInt_t          digitizer_time[NB];
    UShort_t        digitizer_waveforms[NB][NC][MAXSAMPLES];
+   UInt_t          digitizer_time_shifted[NB];
+   UShort_t        digitizer_waveforms_shifted[NB][NC][MAXSAMPLES];
    UInt_t          nDigitizers;
    UInt_t          nChannels;
    UInt_t          nSamples;
@@ -89,13 +91,13 @@ public :
    TBranch        *b_nSamples;   //!
    TBranch        *b_nData;   //!
 
-   pmtAna(TString tag="07-22-1408_0",Int_t maxLoop=0,Int_t firstEntry=0);
+   pmtAna(TString tag="07-31-1518_0",Int_t maxLoop=0,Int_t firstEntry=0);
    virtual ~pmtAna();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
    virtual Long64_t LoadTree(Long64_t entry);
    virtual void     Init(TTree *tree);
-   UInt_t Loop(UInt_t nToLoop=0, UInt_t firstEntry=0);
+   UInt_t Loop(UInt_t nToLoop=0, UInt_t firstEntry=0,Int_t run=0);
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
    // Top Hat filter algorithm
@@ -103,6 +105,7 @@ public :
    std::vector<Double_t> MovingAverageFilter(std::vector<Double_t> signal,Int_t aveN);
    // nearest RF time to hit peak time
    void getTimeToRF(UInt_t board);//ysun 
+   Double_t getPromptTimeToRF();//ysun 
    
    TTree* pmtTree;
    TPmtEvent* pmtEvent;

@@ -24,6 +24,7 @@ void TPmtEvent::clear()
   tRFave=0;
   tPrompt=0;
   promptLike=0;
+  tPromptToRF=0;
   nhits=0;
   hit.clear();	 
   qsum.clear();
