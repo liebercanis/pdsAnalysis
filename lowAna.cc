@@ -9,9 +9,10 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
     printf(" cannot read gain constants file so abort \n");
     return;
   }
- 
+  /** short name **/
+  TString shortName("pmtChainLow");
   fChain=NULL;
-  TString fileName("pdsOutput/pmtChainLow.root");
+  TString fileName= TString("pdsOutput/")+ shortName + TString(".root");
   printf(" looking for file %s\n",fileName.Data());
   TFile *f = new TFile(fileName,"readonly");
   if(f->IsZombie()) {
@@ -45,7 +46,7 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
   
   // open ouput file and make some histograms
   TString outputFileName;
-  outputFileName.Form("pdsOutput/lowAna-%i-%i.root",maxLoop,firstEntry);
+  outputFileName.Form("pdsOutput/lowAna-%s-%i-%i.root",shortName.Data(),maxLoop,firstEntry);
   TString(".root");
   outFile = new TFile(outputFileName,"recreate");
   //promptDir = outFile->mkdir("promptDir");
@@ -174,6 +175,9 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
 
   //gainsTree->Fill();
   //gainFile->Write();
+  pmtSummary->calcBeamTrig();
+  pmtSummary->calcDeltaT();
+  pmtSummary->print();
   summaryTree->Fill();
 
   outFile->Write();
@@ -217,10 +221,12 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     if(jentry%1000==0) printf(" \t.... entry %lld nbytes %lld pmtTree entries %lld \n",jentry,nbytes,pmtTree->GetEntries());
     // is this a new run?
     Int_t thisRun = Int_t(gps_ctrlFlag);
-    std::string tag=std::string("07-31-")+to_string(int(gps_nsIntoSec))+std::string("-")+to_string(int(gps_secIntoDay)); 
+    std::string tag=std::string("07-31-")+std::to_string(int(gps_nsIntoSec))+std::string("-")+std::to_string(int(gps_secIntoDay)); 
     if( thisRun!= currentRun) {
       if(currentRun>=0) {
         qualitySummary();
+        pmtSummary->calcBeamTrig();
+        pmtSummary->calcDeltaT();
         pmtSummary->print();
         summaryTree->Fill();
       }
@@ -260,6 +266,8 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     pmtSummary->ventry.push_back(jentry);    
     pmtSummary->vcompSec.push_back(computer_secIntoEpoch);
     pmtSummary->vcompNano.push_back(computer_nsIntoSec);
+
+    //printf(" \t ev %i run %i  (%u %u %u ) \n",int(event_number),int(currentRun),digitizer_time[0],digitizer_time[1],digitizer_time[2]);
     
   
     UInt_t rftime[3];
@@ -378,6 +386,7 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
         std::vector<Int_t> peakTime = findPeaks(ddigi,THRESHOLDHIGH,THRESHOLDLOW);
         //std::vector<Int_t> peakTime = findMaxPeak(fdigi,8.0*noise,3.0*noise);
         Int_t nhits = findHits(ipmt,sum,peakTime,ddigi,ddigiUn,pmtEvent->trigType);
+        getTimeToRF(ib);
         // now fill in the time since last RF pulse
         hOcc->Fill(ipmt+1,nhits);
         hNHits[ipmt]->Fill(nhits);
@@ -394,12 +403,13 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
         pmtEvent->qsum.push_back(sum);
 
       } // channel loop 
-      getTimeToRF(ib);
+      //getTimeToRF(ib);
     } // board loop 
     /*** after filling hits, get prompt time ****/
     pmtEvent->tPrompt = getPromptTime();//ysun
     pmtEvent->tPromptToRF = getPromptTimeToRF();//ysun
-    Double_t tof=pmtEvent->tPrompt*4.0-GAMMAPEAK;//in ns 
+    Double_t promptt=pmtEvent->tPromptToRF*4.0;//in ns
+    Double_t tof=pmtEvent->tPromptToRF*4.0-GAMMAPEAK+L/clight;//in ns 
     pmtSummary->tof.push_back(tof);//in ns
     double ke=-9999;
     double tpromptNs = -9999;
@@ -409,15 +419,16 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
       double gamma2 = 1./(1.-beta*beta);
       if(gamma2>0) ke = nmass*(sqrt(gamma2)-1.0);
     }//ysun
+
+
     pmtSummary->ke.push_back(ke);
-    pmtSummary->timeToRf.push_back(pmtEvent->tPromptToRF);//in ns with respect to rf 
+    pmtSummary->timeToRf.push_back(pmtEvent->tPromptToRF*4.0);//in ns with respect to rf 
     pmtSummary->tprompt.push_back(tpromptNs);//in ns with respect to rf 
      
     hTPrompt->Fill(pmtEvent->tPrompt);
     pmtEvent->nhits= pmtEvent->hit.size();
     pmtSummary->nhits.push_back(pmtEvent->nhits);  // number of hits in this event
     // need to fill these in
-    pmtSummary->deltaT.push_back(0); 
     
     pmtTree->Fill();
     //if(jentry%1000==0) printf(" \t\t jentry %lli nhits = %d \n",jentry,pmtEvent->nhits);

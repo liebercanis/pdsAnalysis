@@ -12,6 +12,7 @@
 #include <vector>
 #include <complex>
 #include <valarray>
+#include <string>
 
 #include "TPmtEvent.hxx"
 #include "TPmtGains.hxx"
