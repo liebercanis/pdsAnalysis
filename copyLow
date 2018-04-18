@@ -1,0 +1,10 @@
+#!/bin/bash
+echo "Low intensity runs range from 0731_1518 to 0731_2130. They are all in one day."
+HOME=$(pwd)
+#echo $(ls  /project/projectdirs/captain/data/2017/PDS_beamtime_files/)
+cd /project/projectdirs/captain/data/./2017/PDS_beamtime_files/
+for name in  `ls  PDSout_07-30*`  ;do 
+    echo $name
+    scp  $name gold@64.106.62.27:/data1/gold/2017/PDS_beamtime_files/$name
+done
+cd $HOME
