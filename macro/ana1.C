@@ -1,5 +1,4 @@
 #include <vector>
-#include "TPmtEvent.hxx"
 const Double_t GAMMAPEAK=-628.089;//ysun 
 const double L=23.2;//m
 const double clight=0.299792458;//m/ns
@@ -62,9 +61,9 @@ int toPmtNumber(int ib, int ic)
 
 
 
-void ana(Long64_t max=1000)
+void ana1(Long64_t max=0)
 {
-  TString fileTag("lowAna-0-0");
+  TString fileTag("pmtAnaLow_07-31-1728_0");
   TString inputFileName = TString("../pdsOutput/")+fileTag+TString(".root");
   printf(" opening file %s \n",inputFileName.Data()); 
   TFile *infile = new TFile(inputFileName);
@@ -92,7 +91,7 @@ void ana(Long64_t max=1000)
   TString hname;
   TString htitle;
 
-  for(UInt_t ib=0; ib<NB; ++ib) {
+  for(Int_t ib=0; ib<NB; ++ib) {
     for(UInt_t ic=0; ic<NC; ++ic) {
       int ipmt = toPmtNumber(ib,ic);
       if(ipmt<0||ipmt>=NPMT) continue;
@@ -151,10 +150,13 @@ void ana(Long64_t max=1000)
        
     hit.clear();
     hit = pmtEvent->hit;
-    if(entry%1000==0) printf("...entry %i hits %lu trig type %i (%lu,%lu,%lu) \n",entry,hit.size(), pmtEvent->trigType,
-        pmtEvent->rft21.size(),pmtEvent->rft23.size(),pmtEvent->rft23.size());
+    /*
+       if( pmtEvent->compSec >= 1501543798 && pmtEvent->compSec <= 1501543799) 
+       printf("...entry  %i sec %i nano %ll %i hits %lu trig type %i (%lu,%lu,%lu) \n",
+       entry,pmtEvent->compSec, pmtEvent->compNano, hit.size(), pmtEvent->trigType,
+       pmtEvent->rft21.size(),pmtEvent->rft23.size(),pmtEvent->rft23.size())
+    */
 
-	 
     for(int ihit =0; ihit < hit.size(); ++ihit) {
       TPmtHit* phit = &(pmtEvent->hit[ihit]);
       for(int is=0; is<phit->nsamples; ++is) hQinHit->Fill(phit->qsample[is]);

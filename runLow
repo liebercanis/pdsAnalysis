@@ -1,0 +1,9 @@
+#!/bin/bash
+echo "run lowAna"
+MAX=0;
+FIRST=0;
+if [ $# -eq 1 ] ; then MAX=$1 ; fi
+if [ $# -eq 2 ] ; then MAX=$1; FIRST=$2 ; fi
+echo root -q -b " lowAna.cc++($MAX,$FIRST)"
+root -q -b " lowAna.cc++($MAX,$FIRST)"
+
