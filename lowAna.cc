@@ -10,9 +10,9 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
     return;
   }
   /** short name **/
-  TString shortName("pmtChainLow");
+  TString shortName("pmtChain-fix4");  //pmtChainLow
   fChain=NULL;
-  TString fileName= TString("pdsOutput/")+ shortName + TString(".root");
+  TString fileName= TString("pdsOutput/")+ shortName + TString("-0-0") + TString(".root");
   printf(" looking for file %s\n",fileName.Data());
   TFile *f = new TFile(fileName,"readonly");
   if(f->IsZombie()) {

@@ -20,7 +20,7 @@ pmtChain::pmtChain(Int_t maxLoop, Long64_t firstEntry)
  
   // open ouput file and make some histograms
   TString spost;
-  spost.Form("-%i-%lli",int(maxLoop),firstEntry);
+  spost.Form("-fix4-%i-%lli",int(maxLoop),firstEntry);
   TString outputFileName = TString("pdsOutput/pmtChain") + spost + TString(".root");
   outFile = new TFile(outputFileName,"recreate");
   InitOutChain();
@@ -55,7 +55,8 @@ UInt_t pmtChain::Loop(UInt_t nToLoop,UInt_t firstEntry)
   float rawLast[4]={0,0,0,0};
   float rdiff[4]={0,0,0,0};
   float jump = 195.0E6;
-  
+ 
+  for(Int_t ir=0; ir< MAXRUN; ++ir) misAlignCount[ir]=0;
   printf(" entries %lld looping %d first %d \n",nentries,nloop,firstEntry);
   // loop over entries
   for (Long64_t jentry=firstEntry; jentry<nloop+firstEntry; jentry++) {
@@ -77,24 +78,25 @@ UInt_t pmtChain::Loop(UInt_t nToLoop,UInt_t firstEntry)
    
     bool skipEvent = false;
     // fix the output stream 
+    // NFIX is all 
     for(int ifix=0; ifix<NFIX; ++ifix) {
       if( skipMin[ifix] == Int_t(minList[fCurrent]) && abs(skipFirst[ifix]) == runEvent ) {
         if( skipFirst[ifix] > 0) {
           eventNumberBuff[skipBoard[ifix]] += skipLast[ifix]-skipFirst[ifix]+1;
           cout << " \t IFIX update eventNumber file " << fCurrent << " min "  << minList[fCurrent] << " runEvent " << runEvent 
-           << " eventNumberBuff[" << skipBoard[ifix] << "]= "  << eventNumberBuff[skipBoard[ifix]] << endl;
+           << " file event " << outTree->GetEntries() << " eventNumberBuff[" << skipBoard[ifix] << "]= "  << eventNumberBuff[skipBoard[ifix]] << endl;
         } 
         else {// all misses are single events 
           eventNumberBuff[skipBoard[ifix]] -= 1;
           cout << " \t IFIX update eventNumber file " << fCurrent << " min "  << minList[fCurrent] << " runEvent " << runEvent 
-           << " eventNumberBuff[" << skipBoard[ifix] << "]= "  << eventNumberBuff[skipBoard[ifix]] << endl;
+           << " file event " << outTree->GetEntries() << " eventNumberBuff[" << skipBoard[ifix] << "]= "  << eventNumberBuff[skipBoard[ifix]] << endl;
         }
 
       }
     }
     
     if(skipEvent) {
-      cout << " \t IFIX skipEvent file " << fCurrent << " min "  << minList[fCurrent] << " runEvent " << runEvent << endl;
+      cout << " \t IFIX skipEvent file " << fCurrent << " min "  << minList[fCurrent] << " runEvent " << runEvent << " file event " << outTree->GetEntries() << endl;
       continue;  // toss event
     }
 
@@ -111,8 +113,9 @@ UInt_t pmtChain::Loop(UInt_t nToLoop,UInt_t firstEntry)
     rdiff[3]   = float(pdsCompTime) - rawLast[3];
     rawLast[3] =float(pdsCompTime);
     if(rdiff[0]>0&&rdiff[1]>0&&rdiff[2]>0) {
-      if(rdiff[3] > jump && ( rdiff[0]*8<jump || rdiff[1]*8<jump || rdiff[2]*8<jump)) 
-        printf(" MISALIGN event %lld run %i %f (%f ,%f , %f) \n",jentry,fCurrent,rdiff[3],rdiff[0]*8,rdiff[1]*8,rdiff[2]*8); 
+      if(rdiff[3] > jump && ( rdiff[0]*8<jump || rdiff[1]*8<jump || rdiff[2]*8<jump)){ 
+        printf(" MISALIGN event %lld run %i total %i  %f (%f ,%f , %f) \n",jentry,fCurrent,++misAlignCount[fCurrent],rdiff[3],rdiff[0]*8,rdiff[1]*8,rdiff[2]*8); 
+      }
     }
     //
 
@@ -126,6 +129,7 @@ UInt_t pmtChain::Loop(UInt_t nToLoop,UInt_t firstEntry)
 
   } // end loop over entries
   printf(" finished looping  %u outTree size %llu \n",nloop,outTree->GetEntries());
+  for(Int_t ir=0; ir< MAXRUN; ++ir) printf(" run %i misAlignCount %i \n",ir,misAlignCount[ir]);
   return nloop;
 }
 

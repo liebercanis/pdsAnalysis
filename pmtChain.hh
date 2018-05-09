@@ -57,6 +57,9 @@ public :
        1756   347-348              B0 misses 1 event between 347 & 348
        1853   4492-4497            B1 has 6 extra events than B0.
               4493-4496            B1 has 4 extra events than B2.
+
+       >>>  4492 board 1 + 6, board 2 + 2
+
        1858   1307                 B1 has 1 extra event than B0.
               1309-1310            B1 has 2 extra events than B2.
        1910   4110                 B2 has 1 extra events.
@@ -77,14 +80,16 @@ public :
     Int_t skipBoard[NFIX]={2,0,2,2,0,1,1,1,1,2,1,1,1,2,1,2};
     */
 
-    enum {NFIX=15};
+    enum {NFIX=16};
     enum {MAXEVENT=5000};
-    Int_t skipMin[NFIX]={1614,1646,1714,1742,1756,1853,1858,1858,1910,2020,2020,2025,2025,2054,2059};
-    Int_t skipFirst[NFIX]={2032,3561,2058,2096,-347,4492,1307,1309,4110,-1066,-2635,467,471,-210,852};
+    Int_t skipMin[NFIX]={1614,1646,1714,1742,1756,1853,1853,1858,1858,1910,2020,2020,2025,2025,2054,2059};
+    Int_t skipFirst[NFIX]={2032,3561,2058,2096,-347,4491,4491,1307,1309,4110,-1066,-2635,467,471,-210,852};
     // negative event numbers correspond to missing events
-    Int_t skipLast[NFIX]= {2035,3562,2059,2096,-347,4497,1307,1310,4110,-1066,-2635,467,472,-210,852};
-    Int_t skipBoard[NFIX]={2,0,2,2,0,1,1,1,2,1,1,1,2,1,2};
+    Int_t skipLast[NFIX]= {2035,3562,2059,2096,-347,4496,4492,1307,1310,4110,-1066,-2635,467,472,-210,852};
+    Int_t skipBoard[NFIX]={2,0,2,2,0,1,2,1,1,2,1,1,1,2,1,2};
 
+    enum { MAXRUN=91};
+    Int_t misAlignCount[MAXRUN];
   
    TChain          *fChain;   //!pointer to the analyzed TTree or TChain
    TTree           *outTree; 
