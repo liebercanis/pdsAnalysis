@@ -71,7 +71,7 @@ int toPmtNumber(int ib, int ic)
 void check()
 {
 
-  TString fileTag=TString("lowAna-pmtChain-fix4-0-0");
+  TString fileTag=TString("lowAna-pmtChain-fix5-0-0");
 
   ULong_t STEP = pow(2.0,31);
   ULong_t HALF =pow (2.0,30); 
