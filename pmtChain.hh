@@ -63,6 +63,8 @@ public :
        1858   1307                 B1 has 1 extra event than B0.
               1309-1310            B1 has 2 extra events than B2.
        1910   4110                 B2 has 1 extra events.
+       1914   1303                 B1 1 extra
+       1914   1303                 B2 2 extra
        2020   1066-1067            B1 misses 1 event between 1066 & 1067
               2635-2636            B1 misses 1 event between 2635 & 2636
        2025   467                  B1 has 1 extra event than B0.
@@ -70,23 +72,13 @@ public :
        2054   210-212              B1 misses 1 event between 210-212.
        2059   852                  B2 has 1 extra event
        */
-  /*
-    enum {NFIX=16};
+    enum {NFIX=18};
     enum {MAXEVENT=5000};
-    Int_t skipMin[NFIX]={1614,1646,1714,1742,1756,1853,1853,1858,1858,1910,2020,2020,2025,2025,2054,2059};
-    Int_t skipFirst[NFIX]={2032,3561,2058,2096,-347,4492,4493,1307,1309,4110,-1066,-2635,467,471,-210,852};
     // negative event numbers correspond to missing events
-    Int_t skipLast[NFIX]= {2035,3562,2059,2096,-347,4497,4496,1307,1310,4110,-1066,-2635,467,472,-210,852};
-    Int_t skipBoard[NFIX]={2,0,2,2,0,1,1,1,1,2,1,1,1,2,1,2};
-    */
-
-    enum {NFIX=16};
-    enum {MAXEVENT=5000};
-    Int_t skipMin[NFIX]={1614,1646,1714,1742,1756,1853,1853,1858,1858,1910,2020,2020,2025,2025,2054,2059};
-    Int_t skipFirst[NFIX]={2032,3561,2058,2096,-347,4491,4491,1307,1309,4110,-1066,-2635,467,471,-210,852};
-    // negative event numbers correspond to missing events
-    Int_t skipLast[NFIX]= {2035,3562,2059,2096,-347,4496,4492,1307,1310,4110,-1066,-2635,467,472,-210,852};
-    Int_t skipBoard[NFIX]={2,0,2,2,0,1,2,1,1,2,1,1,1,2,1,2};
+    Int_t skipMin[NFIX]=  {1614,1646,1714,1742,1756,1853,1853,1858,1858,1910, 1914, 1914, 2020, 2020,2025,2025,2054,2059};
+    Int_t skipFirst[NFIX]={2032,3561,2058,2096,-347,4491,4491,1307,1309,4110, 1303, 1303,-1066,-2635, 467, 471,-210, 852};
+    Int_t skipLast[NFIX]= {2035,3562,2059,2096,-347,4496,4492,1307,1310,4110, 1303, 1304,-1066,-2635, 467, 472,-210, 852};
+    Int_t skipBoard[NFIX]={   2,   0,   2,   2,   0,   1,   1,   1,   1,   2,    1,    2,     1,    1,   1,   2,  1,   2};
 
     enum { MAXRUN=91};
     Int_t misAlignCount[MAXRUN];
