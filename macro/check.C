@@ -68,17 +68,18 @@ int toPmtNumber(int ib, int ic)
   return ipmt;
 }
 
-void check()
+void check(int icheck=1)
 {
-
-  TString fileTag=TString("lowAna-pmtChain-fix5-0-0");
+  TString fileTag;
+  if(icheck==0) fileTag=TString("lowAna-pmtChain-fix4-0-0");
+  else fileTag=TString("lowAnaNoAlign-0-0");
+  printf(" calling checkNo with icheck %i fileTag %s \n",icheck,fileTag.Data());
 
   ULong_t STEP = pow(2.0,31);
   ULong_t HALF =pow (2.0,30); 
   
   
   // open PDS file
-  //TString fileTag=TString("lowAnaNoAlign-0-0");
   TString inputPDSFileName = TString("../pdsOutput/")+fileTag+TString(".root");
   printf(" check is opening file %s \n",inputPDSFileName.Data()); 
   TFile *inpdsfile = new TFile(inputPDSFileName);
@@ -87,6 +88,7 @@ void check()
   // tree has to be in file
   Long64_t bSize=0;
   pmtTree = (TTree*) inpdsfile->Get("pmtTree");
+  if(!pmtTree) return;
   if(pmtTree) bSize=pmtTree->GetEntriesFast();
   printf(" pmtTree with %i entries \n",int(bSize));
   TPmtEvent *pmtEvent = new TPmtEvent();
@@ -114,6 +116,39 @@ void check()
   TNtuple *ntMatch = new TNtuple("ntMatch"," TPC PDS matching ","itpc:ipds:tpcsec:pdssec:tpcnano:pdsnano:tb0:tb1:tb2:diff:diff0:qsum");
   TNtuple *ntJump = new TNtuple("ntJump"," holdoffs ","run:ev:njump:bjump0:bjump1:bjump2:ncheck:pdst:dpdst:d0:d1:d2:rft0:rft1:rft2");
   TNtuple *ntClock = new TNtuple("ntClock"," clocks ","run:ev:pdst:dpdst:tb0:tb1:tb2:d0:d1:d2:rft0:rft1:rft2");
+
+  typedef struct {
+    Int_t  run;
+    Int_t  event;
+    Int_t  compSec;
+    Int_t rf0;
+    Int_t rf1;
+    Int_t rf2;
+    Long64_t compNano;
+    UInt_t  dt0,dt1,dt2;   // caen digitizer time 
+    Double_t tPrompt; // one for each board
+    Double_t tPromptToRF;
+  } CLOCK;
+
+  static CLOCK clock;
+  /*
+    C : a character string terminated by the 0 character
+    B : an 8 bit signed integer (Char_t)
+    b : an 8 bit unsigned integer (UChar_t)
+    S : a 16 bit signed integer (Short_t)
+    s : a 16 bit unsigned integer (UShort_t)
+    I : a 32 bit signed integer (Int_t)
+    i : a 32 bit unsigned integer (UInt_t)
+    F : a 32 bit floating point (Float_t)
+    D : a 64 bit floating point (Double_t)
+    L : a 64 bit signed integer (Long64_t)
+    l : a 64 bit unsigned integer (ULong64_t)
+    O : [the letter o, not a zero] a boolean (Bool_t)
+    */
+
+
+  TTree *tClock = new TTree("TClk"," PDS clocks ");
+  tClock->Branch("clk",&clock,"run/I:event/I:sec/I:rf0/I:rf1/I:rf2/I:nano/l:dt0/i:dt1/i:dt2/i:tprompt/D:tPromptToRF/D");
 
 
   // look at corresponding PDS data
@@ -178,7 +213,6 @@ void check()
 
   for(unsigned entry = ifirst ; entry < ilast; ++entry ) {
     pmtTree->GetEntry(entry);
-
     mess.Clear();
  
     // look for hits in time with TPC event
@@ -191,7 +225,28 @@ void check()
       timeZero = pdsCompTime;
       printf(" timeZero %lu %0.9E \n",timeZero,float(timeZero));
     }
-    
+
+    // gather RF clocks
+    for(int ib=0; ib< NB; ++ib) rft[ib]=0;
+    if( pmtEvent->rft21.size()>0) rft[0]=pmtEvent->rft21[0];
+    if( pmtEvent->rft22.size()>0) rft[1]=pmtEvent->rft22[0];
+    if( pmtEvent->rft23.size()>0) rft[2]=pmtEvent->rft23[0];
+
+    // fill tree
+    clock.run      = pmtEvent->run;
+    clock.event    = pmtEvent->event;
+    clock.compSec  = pmtEvent->compSec;
+    clock.rf0      = rft[0];
+    clock.rf1      = rft[1];
+    clock.rf2      = rft[2];
+    clock.compNano = pmtEvent->compNano;
+    clock.dt0      = pmtEvent->dtime[0];
+    clock.dt1      = pmtEvent->dtime[1];
+    clock.dt2      = pmtEvent->dtime[2];
+    clock.tPrompt  = pmtEvent->tPrompt; // one for each board
+    clock.tPromptToRF = pmtEvent->tPromptToRF;
+    tClock->Fill();
+
     pdsCompTime -= timeZero;
     //if(run<44) continue;
     //if(run>44) break;
@@ -274,14 +329,9 @@ void check()
     // rf checks
     for(unsigned ib=0; ib<NB; ++ib) {
       if( float(rdiff[ib]*8) >1.0E8 && float(rdiff[ib]*8) < 3.0E8 ) ++bjump[ib]; 
-      rft[ib]=0;
     }
 
-    if( pmtEvent->rft21.size()>0) rft[0]=pmtEvent->rft21[0];
-    if( pmtEvent->rft22.size()>0) rft[1]=pmtEvent->rft22[0];
-    if( pmtEvent->rft23.size()>0) rft[2]=pmtEvent->rft23[0];
-
-    int nrf500=0;
+      int nrf500=0;
     int nrf600=0;
     for(int ib=0; ib<NB; ++ib) {
       if(rft[ib]>450&&rft[ib]<550) ++nrf500;
@@ -333,7 +383,8 @@ void check()
         float(rft[0]),float(rft[1]),float(rft[2]) );
     ntClock->Fill(float(run),float(entry),float(pdsCompTime),float(rdiff[3]),float(dtnano[0]),float(dtnano[1]),float(dtnano[2]),
         float(pmtEvent->dtime[0]), float(pmtEvent->dtime[1]), float(pmtEvent->dtime[2]), 
-        float(rft[0]),float(rft[1]),float(rft[2]) ); 
+        float(rft[0]),float(rft[1]),float(rft[2]) );
+    // if(entry==76607) { printf(" BLAH %u %lu %.0f \n",entry,pmtEvent->dtime[0],float(pmtEvent->dtime[0]))}
     
     //= new TNtuple("ntJump"," holdoffs ","run:ev:njump:ncheck:pdst:dpdst:d0:d1:d2");
 
@@ -349,7 +400,7 @@ void check()
   for(unsigned i=0; i<bsum3.size(); ++i)  hBits2->SetBinContent(i+1,bsum3[i]);
   
 
-  printf(" number of PDS triggers is %ld summary of errors : \n",ntClock->GetEntries());
+  printf(" number of PDS triggers is %lld tclock size %lld summary of errors : \n",ntClock->GetEntries(),tClock->GetEntries());
 
   for(int irun=0; irun<NRUNS; ++irun) 
     printf("\t run %2i MISSA %4i MISSB %4i MISSC %4i MISSD %4i MISSE %4i comp jumps %4i board jumps %4i \n",
