@@ -125,7 +125,9 @@ void check(int icheck=1)
     Int_t rf1;
     Int_t rf2;
     Long64_t compNano;
-    UInt_t  dt0,dt1,dt2;   // caen digitizer time 
+    UInt_t  dt0;
+    UInt_t  dt1;
+    UInt_t  dt2;   // caen digitizer time 
     Double_t tPrompt; // one for each board
     Double_t tPromptToRF;
   } CLOCK;
@@ -250,7 +252,8 @@ void check(int icheck=1)
     pdsCompTime -= timeZero;
     //if(run<44) continue;
     //if(run>44) break;
-    if( entry%5000 == 0) printf(" .... %s entry %u run %i pdsCompTime %lu %E\n",pmtEvent->tag.c_str(),entry,run,pdsCompTime,double(pdsCompTime));
+    if( entry%1 == 0) printf(" XXXXX %s entry %u run %i pdsCompTime %lu %E %E %E \n",pmtEvent->tag.c_str(),entry,run,pdsCompTime,double(pdsCompTime),
+        clock.tPrompt,clock.tPromptToRF);
 
     bitSum(pmtEvent->dtime[0],bsum1);
     bitSum(pmtEvent->dtime[1],bsum2);
@@ -375,7 +378,7 @@ void check(int icheck=1)
         mess.Data(),++ncheck,// bjump[0],bjump[1],bjump[2],
         entry,run,pdsCompSec,pdsCompNano,rdiff[3], rft[0],rft[1],rft[2],
         pmtEvent->dtime[0],pmtEvent->dtime[1],pmtEvent->dtime[2],
-        rdiff[0]*8,rdiff[1]*8,rdiff[2]*8); 
+        rdiff[0]*8,rdiff[1]*8,rdiff[2]*8); //,  clock.tPrompt, clock.tPromptToRF);
 
     ntJump->Fill(float(run),float(entry),float(njump),float(bjump[0]), float(bjump[1]), float(bjump[2]), float(ncheck),
         float(pdsCompTime),float(rdiff[3]),

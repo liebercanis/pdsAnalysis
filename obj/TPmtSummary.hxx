@@ -129,8 +129,10 @@ class TPmtSummary: public TNamed {
     //std::vector<UInt_t>    vgpsSec;
     //std::vector<UShort_t>  vgpsDay;
     //std::vector<UShort_t>  vgpsYear;
+    std::vector<unsigned long long> bclock0;  // running time on board 0
+    std::vector<Int_t> gapNumber0;  // gap count, or 0 if not a gap event.
 
-		ClassDef(TPmtSummary,8)
+		ClassDef(TPmtSummary,9)
 };
 #endif
 

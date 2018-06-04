@@ -29,6 +29,8 @@ void TPmtEvent::clear()
   qmax.clear();
   tPrompt=0;   
   tPromptToRF=0;
+  bclock0=0;
+  gapNumber0=0;
   for(int i=0; i<3; ++i) {
     dtime[i]=0;
   }

@@ -33,6 +33,8 @@ class TPmtEvent: public TNamed {
     Int_t    pdsTrig;
     Int_t    compSec;
     Long64_t compNano;
+    unsigned long long bclock0; // board 0 clock
+    Int_t gapNumber0; // board 0 gap count
     UInt_t  dtime[3];   // caen digitizer time 
     Double_t tPrompt; // one for each board
     Double_t tPromptToRF;
@@ -42,7 +44,7 @@ class TPmtEvent: public TNamed {
     std::vector<Double_t> qsum;
     Int_t  nhits;
 		std::vector<TPmtHit>  hit;
-		ClassDef(TPmtEvent,4)
+		ClassDef(TPmtEvent,5)
 };
 #endif
 

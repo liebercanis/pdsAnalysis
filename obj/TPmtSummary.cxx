@@ -34,6 +34,8 @@ void TPmtSummary::clear()
   timeToRf.clear(); 
   beamtrig.clear();
   deltaT.clear();
+  gapNumber0.clear();
+  bclock0.clear();
   
   run=0; min=0; seg=0; gammapeak=0;
 
