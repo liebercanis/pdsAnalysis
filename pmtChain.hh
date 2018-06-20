@@ -52,35 +52,38 @@ public :
    /* yujing 
        1614   2032-2035            B2 has 4 extra events.
        1646   3561-3562            B0 has 2 extra events.
-       1714   2058-2059            B2 has 2 extra events.
-       1742   2096                 B2 has 1 extra event.    
-       1756   347-348              B0 misses 1 event between 347 & 348
+       1714   2058-2059(2054-2055) B2 has 2 extra events.
+       1742   2096(2090)           B2 has 1 extra event.    
+       1756   347-348(346)         B0 misses 1 event between 347 & 348
        1853   4492-4497            B1 has 6 extra events than B0.
-              4493-4496            B1 has 4 extra events than B2.
+              4499-4500            B1 has 4 extra events than B2.
 
        >>>  4492 board 1 + 6, board 2 + 2
 
-       1858   1307                 B1 has 1 extra event than B0.
-              1309-1310            B1 has 2 extra events than B2.
-       1910   4110                 B2 has 1 extra events.
-       1914   1303                 B1 1 extra
-       1914   1303                 B2 2 extra
-       2020   1066-1067            B1 misses 1 event between 1066 & 1067
-              2635-2636            B1 misses 1 event between 2635 & 2636
-       2025   467                  B1 has 1 extra event than B0.
-              471-472              B2 has 2 extra events than B0.
-       2054   210-212              B1 misses 1 event between 210-212.
-       2059   852                  B2 has 1 extra event
+       1858   1307(1301)           B1 has 1 extra event than B0.
+              1310(1303)           B1 has 2 extra events than B2.
+       1910   4110(4104)           B2 has 1 extra event
+       1914   467(460)             B2 is missing one event
+       1914   1110(1104)           B2 has 1 extra event
+       *1914   1303                B1 1 extra
+       *1914   1303                B2 2 extra
+       2020   1066-1067(1059-1060) B1 misses 1 event between 1066 & 1067
+              2635-2636(2629-2630) B1 misses 1 event between 2635 & 2636
+       2025   467(462)             B1 has 1 extra event than B0.
+              471-472(464-465)     B2 has 2 extra events than B0.
+       2054   210-212(204-206)     B1 misses 1 event between 210-212.
+       2059   852(843)             B2 has 1 extra event
        */
+//actually, due to the accumulation of the extra or missing events, the following extra or missing event number should be also shifted.
     enum {NFIX=18};
     enum {MAXEVENT=5000};
     // negative event numbers correspond to missing events
-    Int_t skipMin[NFIX]=  {1614,1646,1714,1742,1756,1853,1853,1858,1858,1910, 1914, 1914, 2020, 2020,2025,2025,2054,2059};
-    Int_t skipFirst[NFIX]={2032,3561,2058,2096,-347,4491,4491,1307,1309,4110, 1303, 1303,-1066,-2635, 467, 471,-210, 852};
-    Int_t skipLast[NFIX]= {2035,3562,2059,2096,-347,4496,4492,1307,1310,4110, 1303, 1304,-1066,-2635, 467, 472,-210, 852};
-    Int_t skipBoard[NFIX]={   2,   0,   2,   2,   0,   1,   1,   1,   1,   2,    1,    2,     1,    1,   1,   2,  1,   2};
+    Int_t skipMin[NFIX]=  {1614,1646,1714,1742,1756,1853,1853,1858, 1858,1910, 1914, 1914, 2020, 2020,2025,2025,2054,2059};
+    Int_t skipFirst[NFIX]={2032,3561,2054,2090,-346,4491,4492,1301,-1303,4104, -460, 1104,-1059,-2629, 462, 464,-204, 843};
+    Int_t skipLast[NFIX]= {2035,3562,2055,2090,-346,4496,4493,1301,-1303,4104, -460, 1104,-1060,-2630, 462, 465,-206, 843};
+    Int_t skipBoard[NFIX]={   2,   0,   2,   2,   0,   1,   2,   1,    2,   2,    2,    2,    1,    1,   1,   2,   1,   2};
 
-    enum { MAXRUN=91};
+    enum { MAXRUN=93};
     Int_t misAlignCount[MAXRUN];
   
    TChain          *fChain;   //!pointer to the analyzed TTree or TChain

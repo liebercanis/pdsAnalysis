@@ -10,6 +10,8 @@ class boardClock:  public TObject {
     Int_t  run;
     Int_t  event;
     Int_t  compSec;
+    Int_t  ngap;
+    Int_t  ngapTrig;
     Int_t rf0;
     Int_t rf1;
     Int_t rf2;
@@ -25,6 +27,8 @@ class boardClock:  public TObject {
     UInt_t dt2;   // caen digitizer time 
     Double_t tPrompt; // one for each board
     Double_t tPromptToRF;
+    Double_t pdst;
+    Double_t dpdst;
     Double_t bt0;
     Double_t bt1;
     Double_t bt2;
@@ -44,6 +48,8 @@ class boardClock:  public TObject {
       run      =0; 
       event    =0; 
       compSec  =0; 
+      ngap     =0;
+      ngapTrig =0;
       rf0      =0; 
       rf1      =0; 
       rf2      =0; 
@@ -59,6 +65,8 @@ class boardClock:  public TObject {
       dt2      =0; 
       tPrompt  =0;
       tPromptToRF   =0;
+      pdst     =0;
+      dpdst    =0;
       bt0           =0;
       bt1           =0;
       bt2           =0;
@@ -73,7 +81,7 @@ class boardClock:  public TObject {
       jtime2        =0;
     }
 
-	ClassDef(boardClock,1)
+	ClassDef(boardClock,6)
 
  };
 #endif
