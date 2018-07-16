@@ -1,4 +1,5 @@
 // clock info 
+// /
 typedef struct {
   Int_t  run;
   Int_t  event;
@@ -32,12 +33,30 @@ static TIMEMAP tmap2;
 
 
 enum {NB=3};
-const double jump = 195.0E6;
-const double jumpMax = 201.0E6;
+const double jump = 194.0E6;
+const double jumpMax = 202.0E6;
+const ULong_t timeZero = 1501535896380432212;
 
 std::vector<ULong_t> bsum2(32);
 std::vector<ULong_t> bsumAll2(32);
 std::vector<ULong_t> bsumAll0(32);
+/*
+t<6000
+p0                        =   -0.0022838   +/-   3.58479e-12 
+p1                        =  6.60136e-06   +/-   2.14847e-15 
+
+6000<t<1400
+p0                        =    0.0140462   +/-   3.51239e-11 
+p1                        =  4.82972e-06   +/-   4.01273e-15
+t>1400 
+p0                        =    0.0197809   +/-   2.16066e-10 
+p1                        =   4.1016e-06   +/-   1.34053e-14 
+*/
+
+double parv[6]={ -0.0022838 , 6.60136e-06  , 0.0140462 , 4.82972e-06   , 0.0197809, 4.1016e-06};
+
+double fitInterval[2]={6000,14000};
+
 
 void bitSum(UInt_t word, std::vector<ULong_t> &bsum) 
 {
@@ -46,10 +65,11 @@ void bitSum(UInt_t word, std::vector<ULong_t> &bsum)
   for(unsigned i=0; i<bsum.size(); ++i) if(foo.test(i)) ++bsum[i];
 }
 
-void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
+void rclock(Int_t ifile=1, Long64_t max=0, Long64_t first=0)
 {
   TString fileInputName;
   if(ifile==0) fileInputName=TString("check_lowAnaNoAlign-0-0.root");
+  else if(ifile==1) fileInputName=TString("check_lowAna-pmtChain-fix5.root");
   else {
     cout << " invalid "  << ifile << endl;
     return;
@@ -124,13 +144,15 @@ void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
   TH1D* hDiff0 = new TH1D("Diff0"," time since last jump board 0 ns",800,0.,80000.);
   TH1D* hDiff1 = new TH1D("Diff1"," time since last jump board 1 ns",800,0.,80000.);
   TH1D* hDiff2 = new TH1D("Diff2"," time since last jump board 2 ns",800,0.,80000.);
+  TH2D* hDrift = new TH2D("Drift"," bclock drift (s) ",22000,0,22000,40,-0.002748672,0.21);
+
 
 
   TTree *bClock = new TTree("bclk"," PDS clocks ");
   boardClock *bclk = new boardClock;
   bClock->Branch("c",&bclk);
   //,"run/I:event/I:sec/I:rf0/I:rf1/I:rf2/I:nrf0/I:nrf1/I:nrf2/I:nj0/I:nj1/I:nj2/I:nano/l:dt0/i:dt1/i:dt2/i:tprompt/D:tPromptToRF/D:bt0/D:bt1/D:bt2/D:db0/D:db1/D:db2/D:rftime0/D:rftime1/D:rftime2/D:jtime0/D:jtime1/D:jtime2/D");
-  bClock->Print("all");
+  //bClock->Print("all");
 
   //TNtuple *ntSort  = new TNtuple("ntsort"," sorted clocks","ev:bt0:bt1:bt2");
   TNtuple *ntStep  = new TNtuple("ntstep"," steps ","ev:steps:s0:s1:s2:delta0:delta1:delta2:bt0:bt1:bt2");
@@ -196,12 +218,16 @@ void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
   std::vector<Long64_t> rfevCount2;
 
 
+  Long64_t fixByHand;
+
+
   double offSet =0;
+  fixByHand = 237892;
+  if(ifile==1)  fixByHand -= 1;
 
   // want number of events after the gap
   Int_t ngapCount=0;
   std::vector<Int_t> ngapTrig;
-  pdsLast=0;
 
   for (Long64_t jentry=0; jentry<nentries;jentry++) {
     tree->GetEntry(jentry);   
@@ -214,7 +240,7 @@ void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
     double pdst = static_cast<double>(clk.compSec)*1000000000 + static_cast<double>(clk.compNano);
     double dpdst=0;
     if(pdsLast>0) dpdst = pdst - pdsLast;
-    if( dpdst*1e-6 > 155 ) { 
+    if( dpdst*1e-6 > 190 && dpdst*1e-6 <210 ) { 
       ngapTrig.push_back(ngapCount);
       ngapCount=0;
     } else {
@@ -226,10 +252,51 @@ void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
   printf(" pds gap count is ngapTrig size %lu \n",ngapTrig.size());
 
 
-
-
   Int_t ngap=0;
   pdsLast=0;
+
+
+  /*The prescription used was the following:
+    a.) Keep events up to CPU time 1501550116.834 (I kept the complete 4 ms - “bucket”)
+    b.) Delete the next ~2095 events
+    c.) The next event starts at CPU time 1501550122.229 (starting with the 1st RF pulse in a “bucket”)
+    d.) This results in a data loss of ~5.4 seconds.
+    e.) We can be more conservative or more aggressive later.  
+    */
+
+  Long64_t nbad=0;
+  Long64_t badSkip = 2095;
+  double badTimeStart;
+  //= 1501550116.834*1E9;
+  double badTimeEnd;
+  //= 1501550122.229*1E9;
+  double badInterval;
+  //= badTimeEnd - badTimeStart;
+  printf(" bad time skips  %20.4F to %20.4F = %20.4f (s) \n",badTimeStart*1E-9,badTimeEnd*1E-9,badInterval*1E-9);
+  double pdsTimeStart;
+  double pdsTimeSync;
+  double dt0;
+  double badIntervalSkip = badInterval/8;
+
+  Long64_t iaddin=0;
+  double deltaAdd=0;
+  int lostSteps=0;
+  double extra=0;
+  double dpdstAdd=0;
+
+  //
+  TF1 *fdrift0 = new TF1 ("fdrift0", "pol2", 0., 24000);
+  for(int ipar=0 ; ipar<2; ++ipar ) fdrift0->SetParameter( ipar,parv[ipar]);
+  TF1 *fdrift1 = new TF1 ("fdrift0", "pol2", 0., 24000);
+  for(int ipar=0 ; ipar<2; ++ipar ) fdrift1->SetParameter( ipar,parv[ipar+2]);
+  TF1 *fdrift2 = new TF1 ("fdrift0", "pol2", 0., 24000);
+  for(int ipar=0 ; ipar<2; ++ipar ) fdrift2->SetParameter( ipar,parv[ipar+4]);
+
+
+  TCanvas *fitCan=new TCanvas("fitCan","fitCan");
+  fdrift0->Draw();
+  fdrift1->Draw("sames");
+  fdrift2->Draw("sames");
 
   for (Long64_t jentry=0; jentry<nentries;jentry++) {
     //if(jentry>20000) break;
@@ -241,16 +308,66 @@ void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
     rft[0]=clk.rf0; rft[1]=clk.rf1; rft[2]=clk.rf2;
 
     double pdst = static_cast<double>(clk.compSec)*1000000000 + static_cast<double>(clk.compNano);
+    if(jentry==0) {
+      pdsTimeSync = pdst/8 - dtime[0];
+      pdsTimeStart = pdst;
+    }
+    /*(if(jentry%100000==0) {
+      pdsTimeSync= pdst/8;
+      for(int ib=0; ib<NB; ++ib) boff[ib]=0;
+      }
+      */
+
     double dpdst=0;
     if(pdsLast>0) dpdst = pdst - pdsLast;
-    if( dpdst*1e-6 > 155 ) { //&& dpdst*1e-6 < 260) {
+    // bad times 
+    if( jentry >= 240396 && jentry <= 242490) {
+      if(jentry==240396) badTimeStart = pdst;
+      badInterval = pdst - badTimeStart;
+      ++nbad;
+      if(nbad==0||nbad>2090) printf(" bad %lld run %i event %lld time %20.4F time %20.4F  (s) \n",nbad,clk.run,jentry,(pdst-timeZero)*1E-9,badInterval*1E-9);
+      continue;
+    }
+ 
+    if( dpdst*1e-6 > 190 && dpdst*1e-6 <210 ) { 
       bclk->ngap = ++ngap;
       if(unsigned(ngap) < ngapTrig.size()) bclk->ngapTrig= ngapTrig[ngap];
     } else {
       bclk->ngap=0;
     }
 
-    if( dpdst*1e-9 > 17) offSet += dpdst/8;  // units of board digitizer clock 
+
+    if(jentry==fixByHand) {
+      //offSet += 17.256602;
+      dpdstAdd = dpdst;
+      lostSteps = int(dpdst/STEP/8);
+      extra = dtime[0]-dlast[0];
+      double esign = 1.0;
+      if(extra<0) {
+        extra+=STEP;
+        esign = -1.0;
+      }
+      deltaAdd = double(lostSteps)*STEP+extra;
+      extra = extra*esign;
+    }
+
+
+    if( dpdst > 8*STEP || jentry==fixByHand) {
+      iaddin=jentry;
+      dpdstAdd = dpdst;
+      lostSteps = int(dpdst/STEP/8);
+      extra = dtime[0]-dlast[0];
+      double esign = 1.0;
+      offSet += double(lostSteps)*STEP;  // units of board digitizer clock
+      if(extra<0) {
+        extra+=STEP;
+        esign = -1.0;
+        offSet += STEP;
+      }
+      deltaAdd = double(lostSteps)*STEP+extra;
+      extra = extra*esign;
+    }
+
 
     for(int ib=0; ib<NB; ++ib) {
       isRF[ib]=0;
@@ -281,28 +398,73 @@ void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
     steps.reset();
     for(int ib=0; ib<NB; ++ib) {
       delta[ib] =  dtime[ib] - dlast[ib];
-      if( -delta[ib] > HALF && dlast[ib]>0 ) {
+      if( -delta[ib] > HALF && dlast[ib]>0 && iaddin==0) {
         boff[ib] += STEP;
         steps.set(size_t(ib));
         //cout <<" **** " << ib << "  " <<  steps << endl; 
       } else
         ++nskips[ib];
-      btime[ib]=dtime[ib]+boff[ib]+offSet;
+      btime[ib]=dtime[ib]+boff[ib]+offSet+pdsTimeSync;
+      if(pdst>badTimeEnd)  btime[ib] += badIntervalSkip;
     }
 
+    
+    if( (jentry==iaddin&&iaddin>0)||jentry==fixByHand ) {
+      iaddin=0;
+      double bdelta = btime[0]-blast[0];
+      double extraPdst = dpdstAdd - double(lostSteps)*STEP*8;
+      printf(" XXXXXXXXXX  %lld time-t0 %10.4f dpdst %10.4f lost steps %3i stepsXSTEP %10.4f + extra %10.4f  (%10.4f)  = delta %15.4f  delta %5.5f (%5.5f) \n",
+          jentry,(pdst-timeZero)*1E-9,dpdstAdd*1E-9,lostSteps,double(lostSteps)*STEP*8E-9,extra*8E-9,extraPdst*1E-9,deltaAdd*8E-9,
+          (pdst-btime[0]*8)*1E-9,(pdst-timeZero)*1E-9);
+    
+    }
+
+    // correct for drift
+    double tcorr = (pdst - timeZero)*1E-9;
+    double feval;
+    if(tcorr<fitInterval[0]) feval = fdrift0->Eval(tcorr)*1E9/8.0;
+    else if(tcorr<fitInterval[1]) feval = fdrift1->Eval(tcorr)*1E9/8.0;
+    else feval = fdrift2->Eval(tcorr)*1E9/8.0;
+    for(int ib=0; ib<3; ++ib) btime[ib] += feval;
+
+    double bdiff = (pdst-btime[0]*8)*1E-9;
+    if(jentry%100000==0) {
+      printf(" RRRRRRRRRRRRR  %lld time-t0 %10.4f btime[0]  %10.4f    dpdst %10.4f delta %5.9f feval %5.9f \n",
+          jentry,(pdst-timeZero)*1E-9,(btime[0]*8-timeZero)*1E-9 ,dpdst*1E-9,bdiff,feval*1E-9);
+    }
+
+   // if((pdst-btime[0]*8)*1E-9>2&& (pdst-btime[0]*8)*1E-9<100) printf("  \t ?????? %lld time-t0 %10.4f   delta %5.5f dpdst %5.5f  \n", jentry,(pdst-timeZero)*1E-9, (pdst-btime[0]*8)*1E-9,dpdst );
+
+ 
+    // fix by hand to match pds clock 
+    /*bool fixRange = (jentry>76700&&jentry<76800)||(jentry>230000&&jentry<240000)||(jentry>340000&&jentry<350000)||(jentry>365000&&jentry<375000)||(jentry>93800&&jentry<95000);
+    double bump1 = 6432E6/8;
+    double bump2 = (17010E6-6432E6)/8;
+    if(jentry== 45000) { offSet += bump1;
+      printf(" grrrrrrrr %llu %20.4f %20.4f \n",jentry,pdst*1E-9,btime[0]*8E-9);
+    }
+    if(jentry==240000) { offSet += bump2;
+      printf(" grrrrrrrr %llu %20.4f %20.4f \n",jentry,pdst*1E-9,btime[0]*8E-9);
+    }
+    if( (pdst-btime[0]*8)*1E-6>1000&&fixRange)  {
+      offSet += pdst/8-btime[0]; 
+      for(int ib=0; ib<NB; ++ib) btime[ib] += pdst/8 - btime[0]; 
+    }
+    */
+    
 
     // if(jentry>5000) break;
     // start of run
     /*
-    if(jentry%5000==0) {
-      bstart[1]= - btime[1] + btime[0];
-      bstart[2]= - btime[2] + btime[0];
-    }
-    for(int ib=0; ib<NB; ++ib) {
-      btime[ib] += bstart[ib];
-      blast[ib] += bstart[ib];
-    }
-    */
+       if(jentry%5000==0) {
+       bstart[1]= - btime[1] + btime[0];
+       bstart[2]= - btime[2] + btime[0];
+       }
+       for(int ib=0; ib<NB; ++ib) {
+       btime[ib] += bstart[ib];
+       blast[ib] += bstart[ib];
+       }
+       */
 
     // slope 
     //btime[1] /= bslope[1];
@@ -339,6 +501,7 @@ void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
 
     // save jump time, RF time
     for(int ib=0; ib<NB; ++ib) {
+      if(jentry==0) jumpTime[ib]=btime[ib];
       if(delta[ib]*8>jump && delta[ib]*8<jumpMax )   jumpTime[ib]=btime[ib];
       if(isRF[ib]==1) rfTime[ib]=btime[ib];
     }
@@ -347,13 +510,14 @@ void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
     rftime1.push_back( rfTime[1] );
     rftime2.push_back( rfTime[2] );
 
-    
-    for(int ib=0; ib<NB; ++ib) {
-      if(delta[ib]*8<jump && delta[ib]*8<jumpMax  ) {
-        ++njump[ib];
-      } else  { 
-        njump[ib]=0;
-        ++jcount[ib];
+    if(jentry>0) {
+      for(int ib=0; ib<NB; ++ib) {
+        if(delta[ib]*8<jump && delta[ib]*8<jumpMax  ) {
+          ++njump[ib];
+        } else  { 
+          njump[ib]=0;
+          ++jcount[ib];
+        }
       }
     }
 
@@ -385,8 +549,8 @@ void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
       rfcountRun2.push_back(rfcount[2]);
       runCount.push_back(double(runNumber));
         //if(jcount[0]!=jcount[1]||jcount[2]!=rfcount[0])
-        printf(" run %i %10lld  jcount (%6i %6i %6i )  rfcount  (%6i %6i %6i ) total rfcount (%6i %6i %6i )  \n",runNumber,jentry,jcount[0],jcount[1],jcount[2],
-            rfcount[0],rfcount[1],rfcount[2],rfcountEvent[0],rfcountEvent[1],rfcountEvent[2]);
+        //printf(" run %i %10lld  %20.5f jcount (%6i %6i %6i )  rfcount  (%6i %6i %6i ) total rfcount (%6i %6i %6i )  \n",runNumber,jentry,pdst*1E-9,jcount[0],jcount[1],jcount[2],
+        //    rfcount[0],rfcount[1],rfcount[2],rfcountEvent[0],rfcountEvent[1],rfcountEvent[2]);
       ntRunCount->Fill( float(runNumber), float(rfcount[0]), float(rfcount[1]), float(rfcount[2]), float(jcount[0]), float(jcount[1]), float(jcount[2]) ); 
       // time in seconds
       ntRunTime->Fill(double(runNumber),btime[0]*8.0E-9,blast[0]*8.0E-9,dtime[0]*8.0E-9,dlast[0]*8.0E-9);
@@ -431,7 +595,7 @@ void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
     bClock->Fill();
 
     //if( jentry>15300&&jentry<15400) {
-    //  printf(" XXXXXXXXXXXXXXX  %llu %u %.0f \n",jentry,clk.dt0,btime[0]);
+    //if(jentry%10000==0) printf(" .... %llu clock %20.4f jtime %20.4f \n",jentry,(bclk->bt0*8 - timeZero)*1E-9,(bclk->jtime0*8 - timeZero)*1E-9);
     //}
 
 
@@ -441,9 +605,16 @@ void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
       dlast[ib] = dtime[ib];
       blast[ib] = btime[ib];
     }
-  } // loop over entries
+    hDrift->Fill((pdst-timeZero)*1E-9,(pdst-btime[0]*8)*1E-9);
+    } // loop over entries
 
-  printf(" run %i %10lld  jcount (%6i %6i %6i )  rfcount  (%6i %6i %6i ) total rfcount (%6i %6i %6i )  \n",runNumber,nentries,jcount[0],jcount[1],jcount[2],
+    hDrift->ProfileX();
+    hDrift->ProfileY();
+  
+    fout->Write();
+    return;
+
+  printf(" run %i  %10lld jcount (%6i %6i %6i )  rfcount  (%6i %6i %6i ) total rfcount (%6i %6i %6i )  \n",runNumber,nentries,jcount[0],jcount[1],jcount[2],
             rfcount[0],rfcount[1],rfcount[2],rfcountEvent[0],rfcountEvent[1],rfcountEvent[2]);
 
   // time maps
@@ -672,4 +843,5 @@ void rclock(Int_t ifile=0, Long64_t max=0, Long64_t first=0)
   
   cout << " boardClock has  " << bClock->GetEntriesFast() << endl;
   ofs.close();
+
 }
