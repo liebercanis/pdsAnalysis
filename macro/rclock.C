@@ -157,6 +157,7 @@ void rclock(Int_t ifile=1, Long64_t max=0, Long64_t first=0)
   //TNtuple *ntSort  = new TNtuple("ntsort"," sorted clocks","ev:bt0:bt1:bt2");
   TNtuple *ntStep  = new TNtuple("ntstep"," steps ","ev:steps:s0:s1:s2:delta0:delta1:delta2:bt0:bt1:bt2");
   TNtuple *ntJump  = new TNtuple("ntjump"," jumps ","ev:bt0:delta0:delta1:delta2:n0:n1:n2:djt0:djt1:djt2");
+  TNtuple *ntEvMap = new TNtuple("ntEvMap"," event map ","entryOld:entryNew");
 
   TTree *ntMap0 = new TTree("ntmap0"," time map 0 ");
   ntMap0->Branch("map0",&tmap0,"ip/L:ev/L:dt/L:bt/D:dbt/D:jt/D:rf/D");
@@ -298,6 +299,7 @@ void rclock(Int_t ifile=1, Long64_t max=0, Long64_t first=0)
   fdrift1->Draw("sames");
   fdrift2->Draw("sames");
 
+  Long64_t bentry=0;
   for (Long64_t jentry=0; jentry<nentries;jentry++) {
     //if(jentry>20000) break;
     tree->GetEntry(jentry);   
@@ -326,6 +328,7 @@ void rclock(Int_t ifile=1, Long64_t max=0, Long64_t first=0)
       badInterval = pdst - badTimeStart;
       ++nbad;
       if(nbad==0||nbad>2090) printf(" bad %lld run %i event %lld time %20.4F time %20.4F  (s) \n",nbad,clk.run,jentry,(pdst-timeZero)*1E-9,badInterval*1E-9);
+      ntEvMap->Fill(jentry,-1);
       continue;
     }
  
@@ -593,6 +596,9 @@ void rclock(Int_t ifile=1, Long64_t max=0, Long64_t first=0)
     bclk->jtime1=jumpTime[1];
     bclk->jtime2=jumpTime[2];
     bClock->Fill();
+    ntEvMap->Fill(jentry,bentry);
+    ++bentry;
+
 
     //if( jentry>15300&&jentry<15400) {
     //if(jentry%10000==0) printf(" .... %llu clock %20.4f jtime %20.4f \n",jentry,(bclk->bt0*8 - timeZero)*1E-9,(bclk->jtime0*8 - timeZero)*1E-9);
@@ -612,11 +618,13 @@ void rclock(Int_t ifile=1, Long64_t max=0, Long64_t first=0)
     hDrift->ProfileY();
   
     fout->Write();
-    return;
 
   printf(" run %i  %10lld jcount (%6i %6i %6i )  rfcount  (%6i %6i %6i ) total rfcount (%6i %6i %6i )  \n",runNumber,nentries,jcount[0],jcount[1],jcount[2],
             rfcount[0],rfcount[1],rfcount[2],rfcountEvent[0],rfcountEvent[1],rfcountEvent[2]);
 
+  printf("size of file %lld ntEvMap %lld bClock %lld \n",nentries, ntEvMap->GetEntries(), bClock->GetEntries());
+
+    return;
   // time maps
   std::vector<double> jlist0;
   std::vector<double> jlist1;

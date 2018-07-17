@@ -34,11 +34,16 @@ void TPmtSummary::clear()
   timeToRf.clear(); 
   beamtrig.clear();
   deltaT.clear();
-  gapNumber0.clear();
-  bclock0.clear();
+  gapTime.clear();
+  gapNumber.clear();
+  bclock.clear();
+  pdsTZero.clear();
   
   run=0; min=0; seg=0; gammapeak=0;
 
+  trigTime0.clear();
+  trigTime1.clear();
+  trigTime2.clear();
   ntrig555=0; ntrig5xx=0; ntrig444=0; ntrig4xx=0; ntrig111=0;ntrig1xx=0; ntrig000=0; ntrig0xx=0;
   for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
     qsum[ipmt]=0; eqsum[ipmt]=0;
@@ -67,34 +72,36 @@ void TPmtSummary::print(std::ostream &out)
         ntrig555,ntrig5xx,ntrig444,ntrig4xx,ntrig111,ntrig1xx,ntrig000,ntrig1xx); out << buff;
 
     Int_t nrfTrig = ntrig555+ntrig444+ntrig111;
-    sprintf(buff,"# PDS triggers %i  RF  triggers %i \n",ntrig000,nrfTrig); out << buff;
+    sprintf(buff,"# PDS triggers %i  RF  triggers %u \n",ntrig000,beamtrig.size()); out << buff;
     //printf(" gammapeak %f  tZero %f \n",gammapeak,tZero); 
     sprintf(buff,"# gammapeak %f  \n",gammapeak); out << buff; 
 
    
     //printf(" event compSec compNano RF 1 2 3 digi 1 2 3 tprompt tprompt(torf) tof ke trig nhits beamtrig delta_t \n ");
-    sprintf(buff,"# row event entry trig compSec compNano RF 1 2 3 dtime 1 2 3 tprompt timeToRf tof ke trig nhits beamtrig delta_t \n "); out <<  buff;
+    sprintf(buff,"# row event entry trig compSec compNano RF 1 2 3 dtime 1 2 3 trigTime 1 2 3 trig nhits bclock gaptime gapNumber \n "); out <<  buff;
 
    
-    for(unsigned it=0; it<vevent.size() ; ++it ) {
+    for(unsigned it=0; it<beamtrig.size() ; ++it ) {
    
-      sprintf(buff," %4i  %4i  %4i  %4i  %lld  %5i %5i %5i %9u %9u %9u %10.3f %10.3f %10.3f %10.3f %2d %9d %2d %10.0f  \n ", 
+      sprintf(buff," %4i  %4i  %4i  %4i  %lld  %5i %5i %5i %9u %9u %9u %10.3f %10.3f %10.3f %2d %5d %10.4f %10.4f %5i \n ", 
           (int) it,  vevent[it], (int) ventry[it],  vcompSec[it], vcompNano[it],
           vrf1[it], vrf2[it], vrf3[it],  vdtime1[it],vdtime2[it], vdtime3[it],
-          tprompt[it], timeToRf[it], tof[it] , ke[it], 
-          vtrig[it], nhits[it], beamtrig[it] ,deltaT[it] );  
+          trigTime0[it],trigTime1[it],trigTime2[it],
+          //tof[it] , ke[it], 
+          vtrig[it] ,nhits[it], bclock[it]*1E-9 ,gapTime[it]*1E-9, gapNumber[it] );  
       out << buff;
     }
 }
 
 void TPmtSummary::printEvent(unsigned it) 
 {
-     
-  printf(" %s %4i  %4i  %4i  %4i  %lld  %5i %5i %5i %9u %9u %9u %10.3f %10.3f %10.3f %10.3f %2d %9d %2d %10.0f  \n ",tag.c_str(), 
+
+  printf(" %s %4i  %4i  %4i  %4i  %lld  %5i %5i %5i %9u %9u %9u %10.3f %10.3f %10.3f %2d %5d %10.4f %10.4f %5i \n ",tag.c_str(), 
       (int) it,  vevent[it], (int) ventry[it],  vcompSec[it], vcompNano[it],
       vrf1[it], vrf2[it], vrf3[it],  vdtime1[it],vdtime2[it], vdtime3[it],
-      tprompt[it], timeToRf[it], tof[it] , ke[it], 
-      vtrig[it], nhits[it], beamtrig[it],deltaT[it] );  
+      trigTime0[it],trigTime1[it],trigTime2[it],
+      //tof[it] , ke[it], 
+      vtrig[it],nhits[it], bclock[it]*1E-9 ,gapTime[it]*1E-9, gapNumber[it] );  
 }
 
 

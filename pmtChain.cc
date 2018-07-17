@@ -20,7 +20,7 @@ pmtChain::pmtChain(Int_t maxLoop, Long64_t firstEntry)
  
   // open ouput file and make some histograms
   TString spost;
-  spost.Form("-fix4-%i-%lli",int(maxLoop),firstEntry);
+  spost.Form("-fix5-%i-%lli",int(maxLoop),firstEntry);
   TString outputFileName = TString("pdsOutput/pmtChain") + spost + TString(".root");
   outFile = new TFile(outputFileName,"recreate");
   InitOutChain();
@@ -59,6 +59,7 @@ UInt_t pmtChain::Loop(UInt_t nToLoop,UInt_t firstEntry)
   for(Int_t ir=0; ir< MAXRUN; ++ir) misAlignCount[ir]=0;
   printf(" entries %lld looping %d first %d \n",nentries,nloop,firstEntry);
   // loop over entries
+  Long64_t repeatThis = 224494;
   for (Long64_t jentry=firstEntry; jentry<nloop+firstEntry; jentry++) {
     Long64_t ientry = LoadTree(jentry);
     if (ientry < 0) { printf(" load tree returns %lld\n",ientry); break;}
@@ -94,7 +95,15 @@ UInt_t pmtChain::Loop(UInt_t nToLoop,UInt_t firstEntry)
 
       }
     }
-    
+
+    if(jentry==repeatThis) {
+      for(int ib=0; ib<NB; ++ib) {
+        eventNumberBuff[ib] -=1;
+        cout << " \t IFIX REPEAT eventNumber file " << fCurrent << " min "  << minList[fCurrent] << " runEvent " << runEvent 
+          << " file event " << outTree->GetEntries() << " eventNumberBuff[" << ib << "]= " << eventNumberBuff[ib]<< endl;
+      }
+    }
+
     if(skipEvent) {
       cout << " \t IFIX skipEvent file " << fCurrent << " min "  << minList[fCurrent] << " runEvent " << runEvent << " file event " << outTree->GetEntries() << endl;
       continue;  // toss event
@@ -120,13 +129,12 @@ UInt_t pmtChain::Loop(UInt_t nToLoop,UInt_t firstEntry)
     //
 
     /*
-     printf(" \t  ev %llu run ev %i run %i  (%u %u %u ) (%u %u %u )    \n",jentry,int(runEvent),int(fCurrent),
-         digitizer_time[0],digitizer_time[1],digitizer_time[2],
-         odigitizer_time[0],odigitizer_time[1],odigitizer_time[2]);
-         */
-    
-    outTree->Fill();
+       printf(" \t  ev %llu run ev %i run %i  (%u %u %u ) (%u %u %u )    \n",jentry,int(runEvent),int(fCurrent),
+       digitizer_time[0],digitizer_time[1],digitizer_time[2],
+       odigitizer_time[0],odigitizer_time[1],odigitizer_time[2]);
+       */
 
+    outTree->Fill();
   } // end loop over entries
   printf(" finished looping  %u outTree size %llu \n",nloop,outTree->GetEntries());
   for(Int_t ir=0; ir< MAXRUN; ++ir) printf(" run %i misAlignCount %i \n",ir,misAlignCount[ir]);

@@ -68,10 +68,10 @@ int toPmtNumber(int ib, int ic)
   return ipmt;
 }
 
-void check(int icheck=1)
+void check(int icheck=0)
 {
   TString fileTag;
-  if(icheck==0) fileTag=TString("lowAna-pmtChain-fix4-0-0");
+  if(icheck==0) fileTag=TString("lowAna-pmtChain-fix5");
   else fileTag=TString("lowAnaNoAlign-0-0");
   printf(" calling checkNo with icheck %i fileTag %s \n",icheck,fileTag.Data());
 
@@ -106,7 +106,6 @@ void check(int icheck=1)
   TH1D* hBits0 = new TH1D("Bits0"," board 0 bits",32,0,32);
   TH1D* hBits1 = new TH1D("Bits1"," board 1 bits",32,0,32);
   TH1D* hBits2 = new TH1D("Bits2"," board 2 bits",32,0,32);
-
 
   TH1F* hQinHit = new TH1F("QinHit"," ADC counts of bins in hit ",2000,0,20);
   TNtuple* ntPmt = new TNtuple("ntPmt","pmt by board","ev:run:pdst:dt0:dt1:dt2:nrf:delta0:delta1:delta2:off:rt0:rt1:rt2");
@@ -252,8 +251,7 @@ void check(int icheck=1)
     pdsCompTime -= timeZero;
     //if(run<44) continue;
     //if(run>44) break;
-    if( entry%1 == 0) printf(" XXXXX %s entry %u run %i pdsCompTime %lu %E %E %E \n",pmtEvent->tag.c_str(),entry,run,pdsCompTime,double(pdsCompTime),
-        clock.tPrompt,clock.tPromptToRF);
+    //if( entry%1 == 0) printf("%s entry %u run %i pdsCompTime %lu %E %E %E \n",pmtEvent->tag.c_str(),entry,run,pdsCompTime,double(pdsCompTime),clock.tPrompt,clock.tPromptToRF);
 
     bitSum(pmtEvent->dtime[0],bsum1);
     bitSum(pmtEvent->dtime[1],bsum2);
@@ -282,11 +280,10 @@ void check(int icheck=1)
         dstime[ib]= ULong_t(pmtEvent->dtime[ib]);
         dstartNano[ib]=NANO*dstime[ib]; 
       }
-      printf("***** NEW RUN entry %u run %i pdsTime %lu setting board dstartNano %lu %lu %lu  \n",entry,run,pdsCompTime,
+      printf("***** NEW RUN entry %u run %i pdsTime %lu setting board dstartNano %lu %lu %lu ",entry,run,pdsCompTime,
           dstartNano[0],dstartNano[1],dstartNano[2]); 
-      printf("\t run %2i MISSA %4i MISSB %4i MISSC %4i MISSD %4i MISSE %4i comp jumps %4i board jumps %4i \n",
-        run,checkSum[run][0],checkSum[run][1],checkSum[run][2],checkSum[run][3],checkSum[run][4],checkSum[run][5],checkSum[run][6] );
-
+      printf(" .... %2i MISSA %4i MISSB %4i MISSC %4i MISSD %4i MISSE %4i comp jumps %4i board jumps %4i \n",
+        checkSum[run][0],checkSum[run][1],checkSum[run][2],checkSum[run][3],checkSum[run][4],checkSum[run][5],checkSum[run][6] );
     }
 
 

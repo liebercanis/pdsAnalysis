@@ -105,13 +105,15 @@ class TPmtSummary: public TNamed {
     Double_t gain_e[NPMT];
     // vectors for times
     std::vector<Int_t>     nhits;  // number of hits in this event
-    std::vector<Double_t>  timeToRf; 
     std::vector<Int_t>     vtrig;
     std::vector<Int_t>     vrf1;
     std::vector<Int_t>     vrf2;
     std::vector<Int_t>     vrf3;
     std::vector<UInt_t>    vevent;
     std::vector<Long64_t>  ventry;
+    std::vector<Double_t> trigTime0;
+    std::vector<Double_t> trigTime1;
+    std::vector<Double_t> trigTime2;
     std::vector<Double_t> vprompt1; 
     std::vector<Double_t> vprompt2; 
     std::vector<Double_t> vprompt3; 
@@ -121,18 +123,17 @@ class TPmtSummary: public TNamed {
     std::vector<Int_t>     vcompSec;
     std::vector<Long64_t>  vcompNano;
     std::vector<Double_t> tprompt;//ysun
+    std::vector<Double_t> timeToRf; 
     std::vector<Double_t> tof;//ysun
     std::vector<Double_t> ke;//ysun 
-    std::vector<Int_t> beamtrig;
     std::vector<Double_t> deltaT;
-    //std::vector<UInt_t>    vgpsNs;
-    //std::vector<UInt_t>    vgpsSec;
-    //std::vector<UShort_t>  vgpsDay;
-    //std::vector<UShort_t>  vgpsYear;
-    std::vector<unsigned long long> bclock0;  // running time on board 0
-    std::vector<Int_t> gapNumber0;  // gap count, or 0 if not a gap event.
+    std::vector<Int_t> beamtrig;
+    std::vector<Double_t> bclock;
+    std::vector<Double_t>  gapTime;
+    std::vector<Int_t>  gapNumber;
+    std::vector<Double_t> pdsTZero;
 
-		ClassDef(TPmtSummary,9)
+		ClassDef(TPmtSummary,11)
 };
 #endif
 

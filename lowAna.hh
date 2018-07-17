@@ -17,6 +17,7 @@
 #include "TPmtEvent.hxx"
 #include "TPmtGains.hxx"
 #include "TPmtSummary.hxx"
+#include "readClock.hxx"
 #include <TROOT.h>
 #include <TVirtualFFT.h>
 #include <TChain.h>
@@ -49,6 +50,8 @@ public :
   const double clight=0.299792458;//m/ns
   const double nmass=939.565;//MeV
   const Double_t GAMMAPEAK=-628.089;//ysun
+  const UInt_t gate = 4500000; // PDS gate 
+  const float toMicro = 1.0E-3;
  
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
@@ -114,6 +117,7 @@ public :
    TPmtGains *pmtGains;   // new gains from this run
    TPmtGains *goodGains; // the ones used
    TFile *gainFile;
+   readClock *rclock;
    
    // get trigger type 
    Int_t triggerInfo();
@@ -156,6 +160,31 @@ public :
      else ipmt = ib+NPMT; 
      return ipmt;
    }
+
+   void integralHist(TH1F *hist, TH1F* ihist) {
+     int nbins = hist->GetNbinsX();
+     Float_t val=0;
+     for(int i=0; i<nbins; ++i) {
+       val += hist->GetBinContent(i);
+       ihist->SetBinContent(i,val);
+     }
+   }
+
+   Float_t getTime(TH1F *ihist,int& maxbin, Float_t& delta) {
+     int nbins = ihist->GetNbinsX();
+     maxbin=0;
+     delta=0;
+     for(int i=1; i<nbins; ++i) {
+       Float_t d = ihist->GetBinContent(i) - ihist->GetBinContent(i-1);
+       if(d>delta) {
+         delta=d;
+         maxbin=i;
+       }
+     }
+     Float_t time = ihist->GetXaxis()->GetBinLowEdge(maxbin);
+     return time;
+   }
+
    // by run addative alignmentes
    Long64_t addAlign1, addAlign2;
    Double_t baselineNominal[NPMT];
@@ -182,6 +211,7 @@ public :
    TH1D* hTPromptEvent;
    TDirectory *promptDir;
    TDirectory *histDir;
+   TDirectory *trigTimeDir;
 
    TH1D* hSamplesPDS[NPMT];  // include RF
    TH1D* hSamplesPDSSum;
@@ -197,5 +227,8 @@ public :
    TH1D* hBaseline[NPMT];
    TH1D* hOcc;
    TH1D* hNoise;
-   TH1D* hBase;  
+   TH1D* hBase; 
+
+  TH1F* hQTime[NB];
+  TH1F*  hQTimeIntegral[NB];
 };

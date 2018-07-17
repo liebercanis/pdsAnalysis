@@ -9,8 +9,15 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
     printf(" cannot read gain constants file so abort \n");
     return;
   }
+  /** read clock **/
+  rclock = new readClock(); 
+ 
+  printf(" init clock file \n");
+  for(Long64_t jentry=0; jentry<10 ; ++jentry) rclock->readEntry(jentry);
+  printf(" finished init clock file \n");
+
   /** short name **/
-  TString shortName("pmtChain-fixAll");  //pmtChainLow
+  TString shortName("pmtChain-fix5");  //pmtChainLow
   fChain=NULL;
   TString fileName= TString("pdsOutput/")+ shortName + TString(".root");
   printf(" looking for file %s\n",fileName.Data());
@@ -82,7 +89,7 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
   hBase->SetXTitle(" pmt number ");
   hBase->Sumw2();
 
-
+ 
   TString hname;
   TString htitle;
 
@@ -168,6 +175,26 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
       hNHits[ipmt]->SetXTitle(" number of hits per event ");
     }
   }
+  /* charge hist */
+  trigTimeDir =  outFile->mkdir("trigTimeDir");
+  trigTimeDir->cd();
+
+  Int_t nQTimeBins = Int_t( gate/4000);
+  for(int ib=0; ib<NB; ++ib) {
+    hQTime[ib] = new TH1F(Form("QTime%i",ib),"hit charge versus time(micro-sec)",nQTimeBins,0,float(gate)*toMicro);
+    hQTime[ib]->GetXaxis()->SetTitle(Form(" time (micro-sec) board %i ",ib));
+    hQTime[ib]->GetYaxis()->SetTitle(" hit charge ");
+  }
+    for(int ib=0; ib<NB; ++ib ) {
+    hQTimeIntegral[ib]= (TH1F*) hQTime[ib]->Clone(Form("int%s",hQTime[ib]->GetName()));
+    hQTimeIntegral[ib]->SetStats(false);
+    hQTimeIntegral[ib]->GetXaxis()->SetTitle(" time (micro-sec) +/-20ms from TPC event ");
+    hQTimeIntegral[ib]->GetYaxis()->SetTitle(" integral total charge ");
+    hQTimeIntegral[ib]->SetTitle( Form("PMT q integral TPC run board %i ",ib));
+  }
+  
+
+
   //gDirectory->ls();
 
   /***  loop over entries zero = all ***/
@@ -210,11 +237,22 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
 
   UInt_t nloop=nentries;
   if(nToLoop!=0) nloop = nToLoop;
+  Double_t bclock;
+  Double_t gapTime;
+  Int_t gapNumber;
+
   printf(" entries %lld looping %d first %d \n",nentries,nloop,firstEntry);
   std::vector<Double_t> vpromptLike;
   Int_t currentRun = -1;
   // loop over entries
   for (Long64_t jentry=firstEntry; jentry<nloop+firstEntry; jentry++) {
+    
+    // reset time histos for this event
+    for(int ib=0; ib<NB; ++ib) { 
+      hQTime[ib]->Reset();
+      hQTimeIntegral[ib]->Reset();
+    }
+    
     Long64_t ientry = LoadTree(jentry);
     if (ientry < 0) { printf(" load tree returns %lld\n",ientry); break;}
     nbytes += fChain->GetEntry(jentry);
@@ -242,7 +280,10 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     pmtEvent->clear();
    
     // save event info
-    // construct the tag 
+    rclock->getClock(jentry,bclock,gapTime,gapNumber);
+    pmtEvent->bclock=bclock;
+    pmtEvent->gapTime=gapTime;
+    pmtEvent->gapNumber=gapNumber;
     pmtEvent->tag = tag; 
     pmtEvent->run= currentRun;
     pmtEvent->event=event_number;
@@ -252,12 +293,15 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     pmtEvent->trigType = triggerInfo();
     if(event_number%5000==0) printf(" run %i event %i tag %s \n",pmtEvent->run,pmtEvent->event,(pmtEvent->tag).c_str());
     //pmtEvent.tpcTrig;
-    //pmtEvent.pdsTrig;
+    pmtEvent->pdst= static_cast<double>(pmtEvent->compSec)*1E9 + static_cast<double>(pmtEvent->compNano);
     pmtEvent->rft21=rftime21;
     pmtEvent->rft22=rftime22;
     pmtEvent->rft23=rftime23;
      // summary info
     pmtSummary->gammapeak = GAMMAPEAK;
+    pmtSummary->bclock.push_back(pmtEvent->bclock);
+    pmtSummary->gapTime.push_back(pmtEvent->gapTime);
+    pmtSummary->gapNumber.push_back(pmtEvent->gapNumber);
     pmtSummary->vdtime1.push_back(digitizer_time[0]);
     pmtSummary->vdtime2.push_back(digitizer_time[1]);
     pmtSummary->vdtime3.push_back(digitizer_time[2]);
@@ -402,6 +446,22 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
         pmtEvent->qmax.push_back(qmax);
         pmtEvent->qsum.push_back(sum);
 
+        /*file  time histos for this event */
+        for(unsigned jhit =0; jhit < pmtEvent->hit.size(); ++jhit) {
+          TPmtHit* phit = &(pmtEvent->hit[jhit]);
+          Int_t iboard, ichan;
+          fromPmtNumber(phit->ipmt,iboard,ichan);
+          hQTime[iboard]->Fill( phit->tstart, phit->qhit );
+        }
+
+        int maxbin;
+        float delta;
+        for(int ib=0; ib<NB; ++ib) {
+          integralHist( hQTime[ib],hQTimeIntegral[ib]);
+          pmtEvent->trigTime[ib] = getTime(hQTimeIntegral[ib],maxbin,delta);
+          //printf(" \t %i %i %f %f \n",ib,maxbin,delta,time[ib]);
+        }
+   
       } // channel loop 
       //getTimeToRF(ib);
     } // board loop 
@@ -411,6 +471,9 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     Double_t promptt=pmtEvent->tPromptToRF*4.0;//in ns
     Double_t tof=pmtEvent->tPromptToRF*4.0-GAMMAPEAK+L/clight;//in ns 
     pmtSummary->tof.push_back(tof);//in ns
+    pmtSummary->trigTime0.push_back(pmtEvent->trigTime[0]);//in ns
+    pmtSummary->trigTime1.push_back(pmtEvent->trigTime[1]);//in ns
+    pmtSummary->trigTime2.push_back(pmtEvent->trigTime[2]);//in ns
     double ke=-9999;
     double tpromptNs = -9999;
     if(pmtEvent->tPrompt!=-9999 && pmtEvent->trigType==TPmtEvent::TRIG111 && tof>0){

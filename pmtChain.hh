@@ -75,14 +75,14 @@ public :
        2059   852(843)             B2 has 1 extra event
        */
 //actually, due to the accumulation of the extra or missing events, the following extra or missing event number should be also shifted.
-    enum {NFIX=18};
+    enum {NFIX=19};
     enum {MAXEVENT=5000};
     // negative event numbers correspond to missing events
     Int_t skipMin[NFIX]=  {1614,1646,1714,1742,1756,1853,1853,1858, 1858,1910, 1914, 1914, 2020, 2020,2025,2025,2054,2059};
     Int_t skipFirst[NFIX]={2032,3561,2054,2090,-346,4491,4492,1301,-1303,4104, -460, 1104,-1059,-2629, 462, 464,-204, 843};
     Int_t skipLast[NFIX]= {2035,3562,2055,2090,-346,4496,4493,1301,-1303,4104, -460, 1104,-1060,-2630, 462, 465,-206, 843};
     Int_t skipBoard[NFIX]={   2,   0,   2,   2,   0,   1,   2,   1,    2,   2,    2,    2,    1,    1,   1,   2,   1,   2};
-
+  
     enum { MAXRUN=93};
     Int_t misAlignCount[MAXRUN];
   
