@@ -223,7 +223,7 @@ void rclock(Int_t ifile=1, Long64_t max=0, Long64_t first=0)
 
   double offSet =0;
   fixByHand = 237892;
-  if(ifile==1)  fixByHand -= 1;
+  //if(ifile==1)  fixByHand -= 1;
 
   // want number of events after the gap
   Int_t ngapCount=0;
