@@ -39,6 +39,7 @@ class TPmtEvent: public TNamed {
     UInt_t  dtime[3];   // caen digitizer time 
     Double_t trigTime[3];  // trigger time for board
     Double_t tPrompt; // one for each board
+    Double_t ke;
     Double_t tPromptToRF;
     Double_t tRFave;
     Double_t promptLike;
@@ -46,7 +47,7 @@ class TPmtEvent: public TNamed {
     std::vector<Double_t> qsum;
     Int_t  nhits;
 		std::vector<TPmtHit>  hit;
-		ClassDef(TPmtEvent,7)
+		ClassDef(TPmtEvent,8)
 };
 #endif
 

@@ -11,10 +11,6 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
   }
   /** read clock **/
   rclock = new readClock(); 
- 
-  printf(" init clock file \n");
-  for(Long64_t jentry=0; jentry<10 ; ++jentry) rclock->readEntry(jentry);
-  printf(" finished init clock file \n");
 
   /** short name **/
   TString shortName("pmtChain-fix5");  //pmtChainLow
@@ -35,6 +31,11 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
 
   printf(" pdsTree has %lld entries \n",nentries);
   
+ 
+  printf(" init clock file \n");
+  for(Long64_t jentry=0; jentry<10 ; ++jentry) rclock->readEntry(jentry);
+
+  printf(" finished init clock file \n");
   // initicalize fft 
   nFFTSize = int(MAXSAMPLES);
   fFFT = TVirtualFFT::FFT(1, &nFFTSize, "R2C M K");
@@ -75,6 +76,7 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
   //
   //ntuples
   ntTrig = new TNtuple("ntTrig"," trigger ","run:event:r1:r2:r3:t1:t2:t3");
+  TNtuple *ntClock = new TNtuple("ntClock","clock check","event:pdst:bclock:diff");
 
   promptDir =  outFile->mkdir("promptDir");
   histDir =  outFile->mkdir("histDir");
@@ -200,6 +202,20 @@ lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
   /***  loop over entries zero = all ***/
   UInt_t nLoop = Loop(maxLoop,firstEntry);
 
+  printf("  clock check \n");
+
+  for(Long64_t jentry=0; jentry<nentries ; ++jentry) {
+    Double_t bclock;
+    Double_t pclock;
+    Double_t gapTime;
+    Int_t gapNumber;
+    rclock->getClock(jentry,pclock,bclock,gapTime,gapNumber);
+    if(bclock==0) bclock = double(timeZero);
+    double diff = abs(pclock - bclock)*1E-9;
+    //if(bclock<0) printf(" entry %lld pdst %f bclock %f diff %f  \n",jentry,(pclock-double(timeZero))*1E-9,(bclock-double(timeZero))*1E-9,(pclock - bclock)*1E-9);
+    ntClock->Fill(jentry,(pclock-double(timeZero))*1E-9,(bclock-double(timeZero))*1E-9,(pclock - bclock)*1E-9);
+  }
+
   //gainsTree->Fill();
   //gainFile->Write();
   pmtSummary->calcBeamTrig();
@@ -222,6 +238,7 @@ lowAna::~lowAna()
 
 UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
 {
+  //nToLoop = 10000;
   if (fChain == 0) return 0;
 
   Long64_t nentries = fChain->GetEntriesFast();
@@ -238,6 +255,7 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
   UInt_t nloop=nentries;
   if(nToLoop!=0) nloop = nToLoop;
   Double_t bclock;
+  Double_t pclock;
   Double_t gapTime;
   Int_t gapNumber;
 
@@ -280,7 +298,7 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     pmtEvent->clear();
    
     // save event info
-    rclock->getClock(jentry,bclock,gapTime,gapNumber);
+    rclock->getClock(jentry,pclock,bclock,gapTime,gapNumber);
     pmtEvent->bclock=bclock;
     pmtEvent->gapTime=gapTime;
     pmtEvent->gapNumber=gapNumber;
@@ -289,15 +307,17 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     pmtEvent->event=event_number;
     pmtEvent->compSec=computer_secIntoEpoch;
     pmtEvent->compNano=computer_nsIntoSec;
+    pmtEvent->pdst= static_cast<double>(pmtEvent->compSec)*1E9 + static_cast<double>(pmtEvent->compNano);
     // trigger type
     pmtEvent->trigType = triggerInfo();
-    if(event_number%5000==0) printf(" run %i event %i tag %s \n",pmtEvent->run,pmtEvent->event,(pmtEvent->tag).c_str());
+    if(event_number%1000==0) printf(" ZZZZZ run %i event %i tag %s pds %f bclock %f diff %f \n",
+        pmtEvent->run,pmtEvent->event,(pmtEvent->tag).c_str(),
+        (pmtEvent->pdst - double(timeZero))*1E-9,(pmtEvent->bclock - double(timeZero))*1E-9, (pmtEvent->pdst-pmtEvent->bclock)*1E-9);
     //pmtEvent.tpcTrig;
-    pmtEvent->pdst= static_cast<double>(pmtEvent->compSec)*1E9 + static_cast<double>(pmtEvent->compNano);
     pmtEvent->rft21=rftime21;
     pmtEvent->rft22=rftime22;
     pmtEvent->rft23=rftime23;
-     // summary info
+    // summary info
     pmtSummary->gammapeak = GAMMAPEAK;
     pmtSummary->bclock.push_back(pmtEvent->bclock);
     pmtSummary->gapTime.push_back(pmtEvent->gapTime);
@@ -474,16 +494,14 @@ UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     pmtSummary->trigTime0.push_back(pmtEvent->trigTime[0]);//in ns
     pmtSummary->trigTime1.push_back(pmtEvent->trigTime[1]);//in ns
     pmtSummary->trigTime2.push_back(pmtEvent->trigTime[2]);//in ns
+    double tpromptNs = pmtEvent->tPrompt*4.0;
     double ke=-9999;
-    double tpromptNs = -9999;
     if(pmtEvent->tPrompt!=-9999 && pmtEvent->trigType==TPmtEvent::TRIG111 && tof>0){
-      tpromptNs = pmtEvent->tPrompt*4.0;
       double beta = L/tof/clight;
       double gamma2 = 1./(1.-beta*beta);
       if(gamma2>0) ke = nmass*(sqrt(gamma2)-1.0);
     }//ysun
-
-
+    pmtEvent->ke = ke;
     pmtSummary->ke.push_back(ke);
     pmtSummary->timeToRf.push_back(pmtEvent->tPromptToRF*4.0);//in ns with respect to rf 
     pmtSummary->tprompt.push_back(tpromptNs);//in ns with respect to rf 

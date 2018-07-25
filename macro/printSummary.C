@@ -1,6 +1,6 @@
 void printSummary() 
 {
-  TFile *fin = new TFile("/data1/gold/pdsOutput/lowAna-pmtChain-fix4-0-0.root","READONLY");
+  TFile *fin = new TFile("/data1/gold/pdsOutput/lowAna-pmtChain-fix5.root","READONLY");
   cout <<  " summary file for  " << fin->GetName() << endl;
   TTree *tree;
   fin->GetObject("summaryTree",tree);

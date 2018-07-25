@@ -78,17 +78,17 @@ void TPmtSummary::print(std::ostream &out)
 
    
     //printf(" event compSec compNano RF 1 2 3 digi 1 2 3 tprompt tprompt(torf) tof ke trig nhits beamtrig delta_t \n ");
-    sprintf(buff,"# row event entry trig compSec compNano RF 1 2 3 dtime 1 2 3 trigTime 1 2 3 trig nhits bclock gaptime gapNumber \n "); out <<  buff;
+    sprintf(buff,"# row event entry trig compSec compNano RF 1 2 3 dtime 1 2 3 trigTime 1 2 3 trig nhits tprompt ke bclock gaptime gapNumber \n "); out <<  buff;
 
    
     for(unsigned it=0; it<beamtrig.size() ; ++it ) {
    
-      sprintf(buff," %4i  %4i  %4i  %4i  %lld  %5i %5i %5i %9u %9u %9u %10.3f %10.3f %10.3f %2d %5d %10.4f %10.4f %5i \n ", 
+      sprintf(buff," %4i  %4i  %4i  %4i  %lld  %5i %5i %5i %9u %9u %9u %10.3f %10.3f %10.3f %2d  %5d %10.0f %10.3f %10.5f %10.5f %5i \n ", 
           (int) it,  vevent[it], (int) ventry[it],  vcompSec[it], vcompNano[it],
           vrf1[it], vrf2[it], vrf3[it],  vdtime1[it],vdtime2[it], vdtime3[it],
           trigTime0[it],trigTime1[it],trigTime2[it],
           //tof[it] , ke[it], 
-          vtrig[it] ,nhits[it], bclock[it]*1E-9 ,gapTime[it]*1E-9, gapNumber[it] );  
+          vtrig[it] ,nhits[it],tprompt[it], ke[it], bclock[it]*1E-9 ,gapTime[it]*1E-9, gapNumber[it] );  
       out << buff;
     }
 }
@@ -96,12 +96,12 @@ void TPmtSummary::print(std::ostream &out)
 void TPmtSummary::printEvent(unsigned it) 
 {
 
-  printf(" %s %4i  %4i  %4i  %4i  %lld  %5i %5i %5i %9u %9u %9u %10.3f %10.3f %10.3f %2d %5d %10.4f %10.4f %5i \n ",tag.c_str(), 
+  printf(" %s %4i  %4i  %4i  %4i  %lld  %5i %5i %5i %9u %9u %9u %10.3f %10.3f %10.3f %2d %5d %10.0f %10.3f %10.5f %10.5f %5i \n ",tag.c_str(), 
       (int) it,  vevent[it], (int) ventry[it],  vcompSec[it], vcompNano[it],
       vrf1[it], vrf2[it], vrf3[it],  vdtime1[it],vdtime2[it], vdtime3[it],
       trigTime0[it],trigTime1[it],trigTime2[it],
       //tof[it] , ke[it], 
-      vtrig[it],nhits[it], bclock[it]*1E-9 ,gapTime[it]*1E-9, gapNumber[it] );  
+      vtrig[it],nhits[it], tprompt[it], ke[it], bclock[it]*1E-9 ,gapTime[it]*1E-9, gapNumber[it] );  
 }
 
 

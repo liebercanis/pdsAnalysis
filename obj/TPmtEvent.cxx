@@ -32,6 +32,7 @@ void TPmtEvent::clear()
   bclock=0;
   gapTime=0;
   gapNumber=0;
+  ke=0;
   for(int i=0; i<3; ++i) {
     dtime[i]=0;
     trigTime[i]=0;
