@@ -1,0 +1,4 @@
+#!/bin/bash
+NMAX=0
+echo "run pmtChain"
+root -q -b " pmtChain.cc++(0,0)"
