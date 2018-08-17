@@ -36,7 +36,8 @@ DICTS := $(filter-out $(SKIP_DICT), $(patsubst %.hxx,%_Dict.cxx,$(wildcard *.hxx
 #------------------------------------------------------------------------------
 
 
-all: lib pdsSum
+all: lib 
+#pdsSum
 
 lib: $(DICTS) $(OBJS)
 	@echo "lib step $(LD) $(SOFLAGS) $(LIBS) $(OBJS) $(DICTS) -o $(LIBRARY) "

@@ -1,21 +1,21 @@
-#include "pmtAna.hh"
+#include "lowAna.hh"
 #include <TF1.h>
 #include <TPaveStats.h>
 #include <TText.h>
 
-pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
+lowAna::lowAna(Int_t maxLoop, Int_t firstEntry)
 {
   if(readGainConstants()==0) {
     printf(" cannot read gain constants file so abort \n");
     return;
   }
-  //if(!readAlignmentConstants(tag)) {
-  //  printf(" cannot find alignment constants file for tag %s so abort \n",tag.Data());
-    //return;
-  //}
+  /** read clock **/
+  rclock = new readClock(); 
 
+  /** short name **/
+  TString shortName("pmtChain-fix5");  //pmtChainLow
   fChain=NULL;
-  TString fileName = TString("pdsData/PDSout_") + TString(tag) + TString(".root");
+  TString fileName= TString("pdsOutput/")+ shortName + TString(".root");
   printf(" looking for file %s\n",fileName.Data());
   TFile *f = new TFile(fileName,"readonly");
   if(f->IsZombie()) {
@@ -23,24 +23,25 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
     return;
   }
   TTree *tree;
-  f->GetObject("pmt_tree",tree);
+  f->GetObject("pdsTree",tree);
   tree->ls();
   Init(tree);
   if(!fChain) return;
+  Long64_t nentries = fChain->GetEntries();
+
+  printf(" pdsTree has %lld entries \n",nentries);
+  
+ 
+  printf(" init clock file \n");
+  for(Long64_t jentry=0; jentry<10 ; ++jentry) rclock->readEntry(jentry);
+
+  printf(" finished init clock file \n");
   // initicalize fft 
   nFFTSize = int(MAXSAMPLES);
   fFFT = TVirtualFFT::FFT(1, &nFFTSize, "R2C M K");
   fInverseFFT = TVirtualFFT::FFT(1, &nFFTSize, "C2R M K");
 
-  TString summaryFileName = TString("pdsOutput/pmtSummary_")+tag+ TString(".root");
-  summaryFile = new TFile(summaryFileName,"recreate");
-  summaryFile->cd();
-  printf(" opening summary file %s \n",summaryFileName.Data());
-  TTree *summaryTree = new TTree("summaryTree","summaryTree");
-  pmtSummary  = new TPmtSummary();
-  summaryTree->Branch("pmtSummary",&pmtSummary);
-  pmtSummary->tag=tag;
-
+ /* 
   TString gainFileName = TString("pdsOutput/pmtGains_")+tag+ TString(".root");
   gainFile = new TFile(gainFileName,"recreate");
   gainFile->cd();
@@ -49,29 +50,37 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   pmtGains  = new TPmtGains();
   gainsTree->Branch("pmtGains",&pmtGains);
   pmtGains->tag=tag;
-
-
+  */
+  
   // open ouput file and make some histograms
-  TString outputFileName = TString("pdsOutput/pmtAnaLow_")+tag+ TString(".root");
+  TString outputFileName;
+  outputFileName.Form("pdsOutput/lowAna-%s-%i-%i.root",shortName.Data(),maxLoop,firstEntry);
+  TString(".root");
   outFile = new TFile(outputFileName,"recreate");
-  promptDir = outFile->mkdir("promptDir");
+  //promptDir = outFile->mkdir("promptDir");
   outFile->cd();
   printf(" opening output file %s \n",outputFileName.Data());
+  summaryTree = new TTree("summaryTree","summaryTree");
+  pmtSummary  = new TPmtSummary();
+  summaryTree->Branch("pmtSummary",&pmtSummary);
+  
 
   // ttree
   pmtTree = new TTree("pmtTree","pmtTree");
   pmtEvent  = new TPmtEvent();
   pmtTree->Branch("pmtEvent",&pmtEvent);
 
-
+  
 
   //pmtTree->ls();
   //
   //ntuples
-  ntDigi = new TNtuple("ntDigi"," digi  ","ipmt:idigi:digi"); 
-  ntPmt = new TNtuple("ntPmt"," pmts ","trig:ipmt:tmax:qmax:sum:tmaxUn:qmaxUn:sumUn:noise:base:nhit:qrf");
-  ntHit = new TNtuple("ntHit", " hits ","ipmt:sum:time:rftime:length:qpeak:qUnpeak:qhit:qUnhit:fwhm:ratio");
+  ntTrig = new TNtuple("ntTrig"," trigger ","run:event:r1:r2:r3:t1:t2:t3");
+  TNtuple *ntClock = new TNtuple("ntClock","clock check","event:pdst:bclock:diff");
 
+  promptDir =  outFile->mkdir("promptDir");
+  histDir =  outFile->mkdir("histDir");
+  histDir->cd();
   // histos 
   hOcc =  new TH1D("occupancy","occupancy by pmt",NPMT,0,NPMT);
   hOcc->SetXTitle(" pmt number ");
@@ -82,7 +91,7 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
   hBase->SetXTitle(" pmt number ");
   hBase->Sumw2();
 
-
+ 
   TString hname;
   TString htitle;
 
@@ -168,86 +177,68 @@ pmtAna::pmtAna(TString tag, Int_t maxLoop, Int_t firstEntry)
       hNHits[ipmt]->SetXTitle(" number of hits per event ");
     }
   }
+  /* charge hist */
+  trigTimeDir =  outFile->mkdir("trigTimeDir");
+  trigTimeDir->cd();
+
+  Int_t nQTimeBins = Int_t( gate/4000);
+  for(int ib=0; ib<NB; ++ib) {
+    hQTime[ib] = new TH1F(Form("QTime%i",ib),"hit charge versus time(micro-sec)",nQTimeBins,0,float(gate)*toMicro);
+    hQTime[ib]->GetXaxis()->SetTitle(Form(" time (micro-sec) board %i ",ib));
+    hQTime[ib]->GetYaxis()->SetTitle(" hit charge ");
+  }
+    for(int ib=0; ib<NB; ++ib ) {
+    hQTimeIntegral[ib]= (TH1F*) hQTime[ib]->Clone(Form("int%s",hQTime[ib]->GetName()));
+    hQTimeIntegral[ib]->SetStats(false);
+    hQTimeIntegral[ib]->GetXaxis()->SetTitle(" time (micro-sec) +/-20ms from TPC event ");
+    hQTimeIntegral[ib]->GetYaxis()->SetTitle(" integral total charge ");
+    hQTimeIntegral[ib]->SetTitle( Form("PMT q integral TPC run board %i ",ib));
+  }
+  
+
+
   //gDirectory->ls();
 
   /***  loop over entries zero = all ***/
   UInt_t nLoop = Loop(maxLoop,firstEntry);
-  qualitySummary(tag);
 
-  gainsTree->Fill();
-  gainFile->Write();
+  printf("  clock check \n");
+
+  for(Long64_t jentry=0; jentry<nentries ; ++jentry) {
+    Double_t bclock;
+    Double_t pclock;
+    Double_t gapTime;
+    Int_t gapNumber;
+    rclock->getClock(jentry,pclock,bclock,gapTime,gapNumber);
+    if(bclock==0) bclock = double(timeZero);
+    double diff = abs(pclock - bclock)*1E-9;
+    //if(bclock<0) printf(" entry %lld pdst %f bclock %f diff %f  \n",jentry,(pclock-double(timeZero))*1E-9,(bclock-double(timeZero))*1E-9,(pclock - bclock)*1E-9);
+    ntClock->Fill(jentry,(pclock-double(timeZero))*1E-9,(bclock-double(timeZero))*1E-9,(pclock - bclock)*1E-9);
+  }
+
+  //gainsTree->Fill();
+  //gainFile->Write();
+  pmtSummary->calcBeamTrig();
+  pmtSummary->calcDeltaT();
+  pmtSummary->print();
   summaryTree->Fill();
-  summaryFile->Write();
 
   outFile->Write();
   printf(" wrote output file %s \n",outFile->GetName());
-
-  printf(" wrote summary file %s \n",summaryFile->GetName());
-  printf(" wrote gains file %s \n",gainFile->GetName());
-
-
-  // do some plotting
-  if(0) {
-    TString canname;
-    enum {NCAN=7};
-    TCanvas *can1[NCAN];
-    TCanvas *can2[NCAN];
-    TCanvas *can3[NCAN];
-    TCanvas *can4[NCAN];
-    TCanvas *can5[NCAN];
-
-    int ican=-1;
-    int ip=0;
-    for(Int_t ipmt=0; ipmt<NPMT; ++ipmt) {
-      if(ipmt%3==0) {
-        ip=0;
-        ++ican;
-        canname.Form("FFT-set%i-run-%s",ican,tag.Data());
-        can1[ican] = new TCanvas(canname,canname);
-        can1[ican]->Divide(1,3);
-        canname.Form("counts-set%i-run-%s",ican,tag.Data());
-        can2[ican] = new TCanvas(canname,canname);
-        can2[ican]->Divide(1,3);
-        canname.Form("samples-set%i-run-%s",ican,tag.Data());
-        can3[ican] = new TCanvas(canname,canname);
-        can3[ican]->Divide(1,3);
-        canname.Form("hitCharge-set%i-run-%s",ican,tag.Data());
-        can4[ican] = new TCanvas(canname,canname);
-        can4[ican]->Divide(1,3);
-        canname.Form("qMax-set%i-run-%s",ican,tag.Data());
-        can5[ican] = new TCanvas(canname,canname);
-        can5[ican]->Divide(1,3);
-      }
-      can1[ican]->cd(ip+1); hFFT[ipmt]->Draw();
-      can4[ican]->cd(ip+1); gPad->SetLogy(); hHitQ[ipmt]->Draw();
-      can5[ican]->cd(ip+1); gPad->SetLogy(); hQMax[ipmt]->Draw();
-      can3[ican]->cd(ip+1); 
-      hPeaks[ipmt]->Draw();
-      hSamples[ipmt]->Draw("sames");
-      can2[ican]->cd(ip+1);  gPad->SetLogy(); hCounts[ipmt]->Draw();
-      ++ip;
-    }
-
-    for(int ican=0; ican<NCAN; ++ican) {
-      can1[ican]->Print(".pdf");
-      can2[ican]->Print(".pdf");
-      can3[ican]->Print(".pdf");
-      can4[ican]->Print(".pdf");
-      can5[ican]->Print(".pdf");
-    }
-  }
+  //printf(" wrote gains file %s \n",gainFile->GetName());
 
 }
 
 
-pmtAna::~pmtAna()
+lowAna::~lowAna()
 {
   if (!fChain) return;
   delete fChain->GetCurrentFile();
 }
 
-UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
+UInt_t lowAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
 {
+  //nToLoop = 10000;
   if (fChain == 0) return 0;
 
   Long64_t nentries = fChain->GetEntriesFast();
@@ -263,36 +254,74 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
 
   UInt_t nloop=nentries;
   if(nToLoop!=0) nloop = nToLoop;
+  Double_t bclock;
+  Double_t pclock;
+  Double_t gapTime;
+  Int_t gapNumber;
+
   printf(" entries %lld looping %d first %d \n",nentries,nloop,firstEntry);
   std::vector<Double_t> vpromptLike;
+  Int_t currentRun = -1;
   // loop over entries
   for (Long64_t jentry=firstEntry; jentry<nloop+firstEntry; jentry++) {
+    
+    // reset time histos for this event
+    for(int ib=0; ib<NB; ++ib) { 
+      hQTime[ib]->Reset();
+      hQTimeIntegral[ib]->Reset();
+    }
+    
     Long64_t ientry = LoadTree(jentry);
     if (ientry < 0) { printf(" load tree returns %lld\n",ientry); break;}
     nbytes += fChain->GetEntry(jentry);
-    if(jentry%100==0) printf(" \t.... %lld nbytes %lld pmtTree entries %lld \n",jentry,nbytes,pmtTree->GetEntries());
+    if(jentry%1000==0) printf(" \t.... entry %lld nbytes %lld pmtTree entries %lld \n",jentry,nbytes,pmtTree->GetEntries());
+    // is this a new run?
+    Int_t thisRun = Int_t(gps_ctrlFlag);
+    std::string tag=std::string("07-31-")+std::to_string(int(gps_nsIntoSec))+std::string("-")+std::to_string(int(gps_secIntoDay)); 
+    if( thisRun!= currentRun) {
+      if(currentRun>=0) {
+        qualitySummary();
+        pmtSummary->calcBeamTrig();
+        pmtSummary->calcDeltaT();
+        pmtSummary->print();
+        summaryTree->Fill();
+      }
+      currentRun=thisRun;
+      pmtSummary->clear();
+      pmtSummary->tag = tag;
+      pmtSummary->run=currentRun;
+      pmtSummary->min=int(gps_nsIntoSec);
+      pmtSummary->seg=int(gps_secIntoDay);
+    }
+
     // clear the event
     pmtEvent->clear();
-    pmtEvent->tag=pmtSummary->tag;
+   
+    // save event info
+    rclock->getClock(jentry,pclock,bclock,gapTime,gapNumber);
+    pmtEvent->bclock=bclock;
+    pmtEvent->gapTime=gapTime;
+    pmtEvent->gapNumber=gapNumber;
+    pmtEvent->tag = tag; 
+    pmtEvent->run= currentRun;
+    pmtEvent->event=event_number;
+    pmtEvent->compSec=computer_secIntoEpoch;
+    pmtEvent->compNano=computer_nsIntoSec;
+    pmtEvent->pdst= static_cast<double>(pmtEvent->compSec)*1E9 + static_cast<double>(pmtEvent->compNano);
     // trigger type
     pmtEvent->trigType = triggerInfo();
-
-    // save event info 
-    //pmtEvent.run;
-    pmtEvent->event=event_number;
+    if(event_number%1000==0) printf(" ZZZZZ run %i event %i tag %s pds %f bclock %f diff %f \n",
+        pmtEvent->run,pmtEvent->event,(pmtEvent->tag).c_str(),
+        (pmtEvent->pdst - double(timeZero))*1E-9,(pmtEvent->bclock - double(timeZero))*1E-9, (pmtEvent->pdst-pmtEvent->bclock)*1E-9);
     //pmtEvent.tpcTrig;
-    //pmtEvent.pdsTrig;
     pmtEvent->rft21=rftime21;
     pmtEvent->rft22=rftime22;
     pmtEvent->rft23=rftime23;
-    pmtEvent->compSec=computer_secIntoEpoch;
-    pmtEvent->compNano=computer_nsIntoSec;
-
-    if(jentry==0) {
-      cout << "\t TIMETIMETIMETIMETIME  " << pmtSummary->tag << " computer time sec " << pmtEvent->compSec << " nano "  << pmtEvent->compNano << endl;
-    }
-
     // summary info
+    pmtSummary->gammapeak = GAMMAPEAK;
+    pmtSummary->bclock.push_back(pmtEvent->bclock);
+    pmtSummary->gapTime.push_back(pmtEvent->gapTime);
+    pmtSummary->gapNumber.push_back(pmtEvent->gapNumber);
     pmtSummary->vdtime1.push_back(digitizer_time[0]);
     pmtSummary->vdtime2.push_back(digitizer_time[1]);
     pmtSummary->vdtime3.push_back(digitizer_time[2]);
@@ -302,6 +331,9 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     pmtSummary->vcompSec.push_back(computer_secIntoEpoch);
     pmtSummary->vcompNano.push_back(computer_nsIntoSec);
 
+    //printf(" \t ev %i run %i  (%u %u %u ) \n",int(event_number),int(currentRun),digitizer_time[0],digitizer_time[1],digitizer_time[2]);
+    
+  
     UInt_t rftime[3];
     rftime[0]=0; if(rftime21.size()>0) rftime[0]=UInt_t(rftime21[0]);
     rftime[1]=0; if(rftime22.size()>0) rftime[1]=UInt_t(rftime22[0]);
@@ -355,7 +387,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
         if(ientry==0) baselineNominal[ipmt]= baselineMedian;
         else hBaseline[ipmt]->Fill(baselineMedian-baselineNominal[ipmt]);
 
-        if(ientry==0) hFFT[ipmt]=FFTFilter(ipmt);
+        //if(ientry==0) hFFT[ipmt]=FFTFilter(ipmt);
 
         UInt_t tmax=0;
         double qmax=0;
@@ -381,7 +413,6 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
 
           ddigi.push_back(digi);
           ddigiUn.push_back(digiUn);
-          if(jentry%100==0)ntDigi->Fill(double(ipmt),double(is),digi);
           if(pmtEvent->trigType == TPmtEvent::TRIG000) hSamplesPDS[ipmt]->SetBinContent(int(is+1),hSamplesPDS[ipmt]->GetBinContent(int(is+1))+digi);
           else hSamples[ipmt]->SetBinContent(int(is+1),hSamples[ipmt]->GetBinContent(int(is+1))+digi);
           // here I am not worrying about the difference between noise and gain-corrected noise.  just using gain-corrected noise
@@ -397,6 +428,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
 
         // make some single event sample plots 
         if(jentry<2) {
+          histDir->cd();
           TString hname,htitle;
           hname.Form("Digi_pmt%i_ev%i",ipmt,Int_t(ientry));
           htitle.Form("digi samples pmt %i ev %i",ipmt,Int_t(ientry));
@@ -418,6 +450,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
         std::vector<Int_t> peakTime = findPeaks(ddigi,THRESHOLDHIGH,THRESHOLDLOW);
         //std::vector<Int_t> peakTime = findMaxPeak(fdigi,8.0*noise,3.0*noise);
         Int_t nhits = findHits(ipmt,sum,peakTime,ddigi,ddigiUn,pmtEvent->trigType);
+        getTimeToRF(ib);
         // now fill in the time since last RF pulse
         hOcc->Fill(ipmt+1,nhits);
         hNHits[ipmt]->Fill(nhits);
@@ -428,29 +461,47 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
           hPeaks[ipmt]->SetBinContent(bin+1, hPeaks[ipmt]->GetBinContent(bin+1)+ddigi[bin]);
         }
         hQMax[ipmt]->Fill(qmax);
-        ntPmt->Fill(double(pmtEvent->trigType),
-            double(ipmt),tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,baselineMedian-baselineNominal[ipmt],nhits,qrf);
+        //ntPmt->Fill(double(pmtEvent->trigType),
+        //    double(ipmt),tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,baselineMedian-baselineNominal[ipmt],nhits,qrf);
         pmtEvent->qmax.push_back(qmax);
         pmtEvent->qsum.push_back(sum);
 
+        /*file  time histos for this event */
+        for(unsigned jhit =0; jhit < pmtEvent->hit.size(); ++jhit) {
+          TPmtHit* phit = &(pmtEvent->hit[jhit]);
+          Int_t iboard, ichan;
+          fromPmtNumber(phit->ipmt,iboard,ichan);
+          hQTime[iboard]->Fill( phit->tstart, phit->qhit );
+        }
+
+        int maxbin;
+        float delta;
+        for(int ib=0; ib<NB; ++ib) {
+          integralHist( hQTime[ib],hQTimeIntegral[ib]);
+          pmtEvent->trigTime[ib] = getTime(hQTimeIntegral[ib],maxbin,delta);
+          //printf(" \t %i %i %f %f \n",ib,maxbin,delta,time[ib]);
+        }
+   
       } // channel loop 
+      //getTimeToRF(ib);
     } // board loop 
     /*** after filling hits, get prompt time ****/
-    pmtEvent->tPrompt = getPromptTime();
+    pmtEvent->tPrompt = getPromptTime();//ysun
     pmtEvent->tPromptToRF = getPromptTimeToRF();//ysun
     Double_t promptt=pmtEvent->tPromptToRF*4.0;//in ns
     Double_t tof=pmtEvent->tPromptToRF*4.0-GAMMAPEAK+L/clight;//in ns 
     pmtSummary->tof.push_back(tof);//in ns
+    pmtSummary->trigTime0.push_back(pmtEvent->trigTime[0]);//in ns
+    pmtSummary->trigTime1.push_back(pmtEvent->trigTime[1]);//in ns
+    pmtSummary->trigTime2.push_back(pmtEvent->trigTime[2]);//in ns
+    double tpromptNs = pmtEvent->tPrompt*4.0;
     double ke=-9999;
-    double tpromptNs = -9999;
     if(pmtEvent->tPrompt!=-9999 && pmtEvent->trigType==TPmtEvent::TRIG111 && tof>0){
-      tpromptNs = pmtEvent->tPrompt*4.0;
       double beta = L/tof/clight;
       double gamma2 = 1./(1.-beta*beta);
       if(gamma2>0) ke = nmass*(sqrt(gamma2)-1.0);
     }//ysun
-
-
+    pmtEvent->ke = ke;
     pmtSummary->ke.push_back(ke);
     pmtSummary->timeToRf.push_back(pmtEvent->tPromptToRF*4.0);//in ns with respect to rf 
     pmtSummary->tprompt.push_back(tpromptNs);//in ns with respect to rf 
@@ -458,9 +509,11 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
     hTPrompt->Fill(pmtEvent->tPrompt);
     pmtEvent->nhits= pmtEvent->hit.size();
     pmtSummary->nhits.push_back(pmtEvent->nhits);  // number of hits in this event
-
+    // need to fill these in
+    
     pmtTree->Fill();
-    if(jentry%1000==0) printf(" \t\t jentry %lli nhits = %d \n",jentry,pmtEvent->nhits);
+    //if(jentry%1000==0) printf(" \t\t jentry %lli nhits = %d \n",jentry,pmtEvent->nhits);
+    //if(jentry%1000==0) pmtEvent->print();
   }   // end loop over entries
   printf(" finised looping  %u pmtTree size %llu \n",nloop,pmtTree->GetEntries());
   // normalize
@@ -506,7 +559,7 @@ UInt_t pmtAna::Loop(UInt_t nToLoop,UInt_t firstEntry)
   return nloop;
 }
 
-Int_t pmtAna::readGainConstants(TString fileName)
+Int_t lowAna::readGainConstants(TString fileName)
 {
   TString filename("pmtGoodGains_07-31-1555_0.root");
   TFile *fgain = new TFile(filename,"READONLY");
@@ -527,61 +580,8 @@ Int_t pmtAna::readGainConstants(TString fileName)
 
   return 21;
 }
-bool pmtAna::readAlignmentConstants(TString tag, TString fileName)
-{
-  return false;
-}
-/*
-  bool found=0;
-  cout << " reading alignment file " << fileName << " looking for " << tag  << endl;
-  TFile*  fAlignIn = new TFile(fileName, "READ");
-  if(fAlignIn->IsZombie()) {
-    printf(" cannot read file %s\n",fileName.Data());
-    return found;
-  }
-  TTree* atree = (TTree *)fAlignIn->Get("alignTree");
-  if(!atree) {
-    printf(" cannot find alignTree in file %s\n",fileName.Data());
-    fAlignIn->Close();
-    return found;
-  }
-  ULong64_t nEntry = atree->GetEntries();
-  printf(" have %d alignments runs \n",int(nEntry));
-  TPmtAlign* pmtAlign = new TPmtAlign();
-  atree->SetBranchAddress("pmtAlign",&pmtAlign);
-  // get alignments for this tag
-  //align0.clear();
-  //align1.clear();
-  //align2.clear();
-  
-  for(ULong64_t entry=0; entry< nEntry; ++entry){
-    atree->GetEntry(entry);
-    if(pmtAlign->tag==tag) found=true;
-    if(found) { // load constants from file
 
-      Long64_t start0 = Long64_t(pmtAlign->start0);
-      Long64_t start1 = Long64_t(pmtAlign->start1);
-      Long64_t start2 = Long64_t(pmtAlign->start2); 
-      addAlign1 = start0-start1;
-      addAlign2 = start0-start2;
-      printf(" readAlignmentConstants: %s  %lli  %lli  %lli  %lli  %lli \n", pmtAlign->tag.c_str(),start0,start1,start2,start0-start1,start0-start2);
-
-      
-      for(unsigned i=0; i < pmtAlign->align0.size(); ++i) {
-        align0.push_back(pmtAlign->align0[i]);
-        align1.push_back(pmtAlign->align1[i]);
-        align2.push_back(pmtAlign->align2[i]);
-      }
-      
-    }
-    if(found) break;
-  }
-  fAlignIn->Close();
-  return found;
-}
-*/
-
-std::vector<Int_t> pmtAna::findRFTimes(int ipmt, double& step) 
+std::vector<Int_t> lowAna::findRFTimes(int ipmt, double& step) 
 {
   std::vector<Int_t> rftimes;
   int ib; int ic;
@@ -622,7 +622,7 @@ std::vector<Int_t> pmtAna::findRFTimes(int ipmt, double& step)
   return rftimes;
 }
 
-std::vector<Int_t> pmtAna::findMaxPeak(std::vector<Double_t> v, Double_t threshold, Double_t sthreshold) 
+std::vector<Int_t> lowAna::findMaxPeak(std::vector<Double_t> v, Double_t threshold, Double_t sthreshold) 
 {
   // Produces a list of max digi peak
   std::vector<Int_t> peakTime;
@@ -667,7 +667,7 @@ std::vector<Int_t> pmtAna::findMaxPeak(std::vector<Double_t> v, Double_t thresho
 }
 
 
-std::vector<Int_t> pmtAna::findPeaks(std::vector<Double_t> v, Double_t threshold, Double_t sthreshold) 
+std::vector<Int_t> lowAna::findPeaks(std::vector<Double_t> v, Double_t threshold, Double_t sthreshold) 
 {
   // Produces a list of peaks above the threshold
   std::vector<Int_t> peakTime;
@@ -711,7 +711,7 @@ std::vector<Int_t> pmtAna::findPeaks(std::vector<Double_t> v, Double_t threshold
   return peakTime;
 }
 
-Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, std::vector<Double_t> ddigi, std::vector<Double_t> ddigiUn, Int_t type) 
+Int_t lowAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, std::vector<Double_t> ddigi, std::vector<Double_t> ddigiUn, Int_t type) 
 {
   //printf(" findHits called with  peakTime size %i  \n",peakTime.size());
 
@@ -790,7 +790,6 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     // time past latest RF pulse
     if(pmtEvent->trigType==TPmtEvent::TRIG000)  hRawQ[ipmt]->Fill(qUnpeak); 
     // hRawQ[ipmt]->Fill(qUnhit);
-    ntHit->Fill(ipmt,sum,peakt,pmtEvent->tRFave,length,qpeak,qUnpeak,qhit,qUnhit,phit.fwhm,phit.ratio);
     if(qUnpeak<1) phit.print();
     hHitQ[ipmt]->Fill(qhit);
     bool bad=false;
@@ -802,9 +801,9 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
     //phit.print();
     /* error if qhit < 0! */
     if(phit.qhit<0) { 
-      printf("\n\t !!pmtAna::findHits WARNING negative charge qhit!! qhit %f \n",phit.qhit) ; phit.print(); }
+      printf("\n\t !!lowAna::findHits WARNING negative charge qhit!! qhit %f \n",phit.qhit) ; phit.print(); }
     if(phit.qUnhit<0) { 
-      printf("\n\t !!pmtAna::findHits WARNING negative charge qUnhit!! qUnhit %f \n",phit.qUnhit) ; phit.print(); }
+      printf("\n\t !!lowAna::findHits WARNING negative charge qUnhit!! qUnhit %f \n",phit.qUnhit) ; phit.print(); }
 
     pmtEvent->hit.push_back(phit);
     ++nhits;
@@ -814,7 +813,7 @@ Int_t pmtAna::findHits(Int_t ipmt, Double_t sum, std::vector<Int_t> peakTime, st
 }
 
 
-TH1D* pmtAna::FFTFilter(Int_t ipmt)
+TH1D* lowAna::FFTFilter(Int_t ipmt)
 {
   int ib,ic;
   fromPmtNumber(ipmt,ib,ic);
@@ -832,7 +831,7 @@ TH1D* pmtAna::FFTFilter(Int_t ipmt)
   TH1D* hfft = new TH1D(Form("FFTPmt%i",ipmt),Form("FFT PMT %i",ipmt),nFFTSize/2,0,nFFTSize/2);
 
   // fill samples FFT histogram && elec response in time domain
-  printf(" created %s %s \n",hfft->GetName(),hfft->GetTitle());
+  // printf(" created %s %s \n",hfft->GetName(),hfft->GetTitle());
   // skip first bin which is pedestal
   for (int i = 1; i<nFFTSize/2; ++i) {
     double rl, im;
@@ -842,9 +841,7 @@ TH1D* pmtAna::FFTFilter(Int_t ipmt)
   } 
   return hfft;      
 }
-
-// trigger information
-Int_t pmtAna::triggerInfo()
+Int_t lowAna::triggerInfo()
 {
   Int_t type = TPmtEvent::TRIGUNKNOWN; // unknosn 
   // RF channels 
@@ -905,32 +902,198 @@ Int_t pmtAna::triggerInfo()
   } else if ( r1==4 || r2==4 || r3==4 ) {
     type = TPmtEvent::TRIG4XX; 
     ++pmtSummary->ntrig4xx;
-  } 
+  }
+  //if(type!= TPmtEvent::TRIG000 && type!=TPmtEvent::TRIG111)
+  ntTrig->Fill(float(pmtEvent->run),float(pmtEvent->event),float(r1),float(r2),float(r3),float(t1),float(t2),float(t3) );
   return type;
 }
 
-// summarize run quality
-void pmtAna::qualitySummary(TString tag)
+void lowAna::ADCFilter(int iB, int iC) 
 {
+  for (int is = 0; is<MAXSAMPLES; ++is) {
+    if (digitizer_waveforms[iB][iC][is] > MAXADC) {
+      if (is > 0) { digitizer_waveforms[iB][iC][is] = digitizer_waveforms[iB][iC][is-1];}
+      else {
+        int is2 = 0;
+        while (digitizer_waveforms[iB][iC][is2] > MAXADC) {
+          digitizer_waveforms[iB][iC][0] = digitizer_waveforms[iB][iC][is2+1];
+          ++is2;
+        }
+      }
+    }
+  }
+}
+
+
+/******************************** auto generated stuff below. ****************************/
+Int_t lowAna::GetEntry(Long64_t entry)
+{
+  // Read contents of entry.
+  if (!fChain) return 0;
+  return fChain->GetEntry(entry);
+}
+Long64_t lowAna::LoadTree(Long64_t entry)
+{
+  // Set the environment to read one entry
+  if (!fChain) return -5;
+  Long64_t centry = fChain->LoadTree(entry);
+  if (centry < 0) return centry;
+  if (fChain->GetTreeNumber() != fCurrent) {
+    fCurrent = fChain->GetTreeNumber();
+    Notify();
+  }
+  return centry;
+}
+
+void lowAna::Init(TTree *tree)
+{
+  // The Init() function is called when the selector needs to initialize
+  // a new tree or chain. Typically here the branch addresses and branch
+  // pointers of the tree will be set.
+  // It is normally not necessary to make changes to the generated
+  // code, but the routine can be extended by the user if needed.
+  // Init() will be called many times when running on PROOF
+  // (once per file to be processed).
+
+  // Set branch addresses and branch pointers
+  if (!tree) return;
+  fChain = tree;
+  fCurrent = -1;
+  fChain->SetMakeClass(1);
+
+  fChain->SetBranchAddress("event_number", &event_number, &b_event_number);
+  fChain->SetBranchAddress("computer_secIntoEpoch", &computer_secIntoEpoch, &b_computer_secIntoEpoch);
+  fChain->SetBranchAddress("computer_nsIntoSec", &computer_nsIntoSec, &b_computer_nsIntoSec);
+  fChain->SetBranchAddress("gps_nsIntoSec", &gps_nsIntoSec, &b_gps_nsIntoSec);
+  fChain->SetBranchAddress("gps_secIntoDay", &gps_secIntoDay, &b_gps_secIntoDay);
+  fChain->SetBranchAddress("gps_daysIntoYear", &gps_daysIntoYear, &b_gps_daysIntoYear);
+  fChain->SetBranchAddress("gps_Year", &gps_Year, &b_gps_Year);
+  fChain->SetBranchAddress("gps_ctrlFlag", &gps_ctrlFlag, &b_gps_ctrlFlag);
+  fChain->SetBranchAddress("digitizer_size", digitizer_size, &b_digitizer_size);
+  fChain->SetBranchAddress("digitizer_chMask", digitizer_chMask, &b_digitizer_chMask);
+  fChain->SetBranchAddress("digitizer_evNum", digitizer_evNum, &b_digitizer_evNum);
+  fChain->SetBranchAddress("digitizer_time", digitizer_time, &b_digitizer_time);
+  fChain->SetBranchAddress("digitizer_waveforms", digitizer_waveforms, &b_digitizer_waveforms);
+  fChain->SetBranchAddress("nDigitizers", &nDigitizers, &b_nDigitizers);
+  fChain->SetBranchAddress("nChannels", &nChannels, &b_nChannels);
+  fChain->SetBranchAddress("nSamples", &nSamples, &b_nSamples);
+  fChain->SetBranchAddress("nData", &nData, &b_nData);
+  Notify();
+}
+
+Bool_t lowAna::Notify()
+{
+  // The Notify() function is called when a new file is opened. This
+  // can be either for a new TTree in a TChain or when when a new TTree
+  // is started when using PROOF. It is normally not necessary to make changes
+  // to the generated code, but the routine can be extended by the
+  // user if needed. The return value is currently not used.
+
+  return kTRUE;
+}
+
+void lowAna::Show(Long64_t entry)
+{
+  // Print contents of entry.
+  // If entry is not specified, print current entry
+  if (!fChain) return;
+  fChain->Show(entry);
+}
+Int_t lowAna::Cut(Long64_t entry)
+{
+  // This function may be called from Loop.
+  // returns  1 if entry is accepted.
+  // returns -1 otherwise.
+  return 1;
+}
+Double_t lowAna::getPromptTimeToRF()
+{
+  // fill histogram to find peak bin in event.
+  hTPromptEvent->Reset();
+ std::vector<Int_t> rft;
+
+
+ for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {//ysun
+   if(pmtEvent->hit[ihit].ipmt<7) rft = pmtEvent->rft21;//ysun
+   else if(pmtEvent->hit[ihit].ipmt>=7 && pmtEvent->hit[ihit].ipmt<14) rft = pmtEvent->rft22;//ysun
+   else if(pmtEvent->hit[ihit].ipmt>=14 && pmtEvent->hit[ihit].ipmt<21) rft = pmtEvent->rft23;//ysun
+   if(rft.size()>0){
+     for (int i=0;i<pmtEvent->hit[ihit].nsamples;i++) {//ysun
+       hTPromptEvent->Fill(pmtEvent->hit[ihit].tsample[i]-rft[0],pmtEvent->hit[ihit].qsample[i]);//ysun
+     }//ysun
+   }
+ }//ysun
+ //return Double_t(hTPromptEvent->GetMaximumBin())-pmtEvent->tRFave; //ysun
+ if(hTPromptEvent->GetEntries()>0) return Double_t(hTPromptEvent->GetMaximumBin()-MAXSAMPLES); //ysun
+ else return -9999;//ysun
+}
+
+
+Double_t lowAna::getPromptTime()
+{
+  // fill histogram to find peak bin in event.
+  hTPromptEvent->Reset();
+  std::vector<Int_t> rft;
+  
+  for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {//ysun
+    for (int i=0;i<pmtEvent->hit[ihit].nsamples;i++) {//ysun
+      hTPromptEvent->Fill(pmtEvent->hit[ihit].tsample[i],pmtEvent->hit[ihit].qsample[i]);//ysun
+    }//ysun
+  }//ysun
+  if(hTPromptEvent->GetEntries()>0) return Double_t(hTPromptEvent->GetMaximumBin()-MAXSAMPLES); //ysun
+  else return -9999;//ysun
+}
+
+// nearest RF time to hit peak time
+void lowAna::getTimeToRF(UInt_t board) 
+{
+  std::vector<Int_t> rft;
+  if(board==0) rft = pmtEvent->rft21;//ysun
+  else if(board==1) rft = pmtEvent->rft22;//ysun
+  else if(board==2) rft = pmtEvent->rft23;//ysun
+  for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {
+    Int_t time = MAXSAMPLES;
+    Int_t hitTime = pmtEvent->hit[ihit].peakTime;
+    for(unsigned i=0; i<rft.size() ; ++i) {//ysun
+      Int_t tdiff = hitTime - rft[i];//ysun
+      if(tdiff<0) break;
+      if( tdiff<time ) time=tdiff;
+    }
+    pmtEvent->hit[ihit].timeToRF = time;
+  }
+}
+
+
+// neils filter
+std::vector<Double_t> lowAna::MovingAverageFilter(std::vector<Double_t> signal,Int_t aveN)
+{
+  Int_t N = aveN;
+  if(aveN%2==0) ++N; 
+  std::vector<Double_t> filter;
+  Int_t N2 = std::floor(N/2);
+  for(int i = N2; i < Int_t(signal.size())-N2; i++){
+    Double_t sum = 0;
+    for(int j = i-N2; j <= i+N2; j++){
+      sum += signal[j];
+    }
+    sum /= N;
+    filter.push_back(sum);
+  }
+
+  for(int i = 0; i < N2 ; i++){
+    std::vector<Double_t>::iterator it;
+    it = filter.begin();
+    filter.insert(it,0.);
+    filter.push_back(0);
+  }
+  return filter;
+}
+
+// summarize run quality
+void lowAna::qualitySummary()
+{
+
   /*
-  Int_t pmtEntries = (Int_t) ntPmt->GetEntries();
-  if(ntPmt->GetEntries()<1) return;
-  //cout<<"Number of quality entries: "<<entries<< endl;
-  Float_t ftrig,fpmt,tmax,qmax,sum,tmaxUn,qmaxUn,sumUn,noise,base,nhit,qrf;
-
-  ntPmt->SetBranchAddress("trig",&ftrig);
-  ntPmt->SetBranchAddress("ipmt",&fpmt);
-  ntPmt->SetBranchAddress("tmax",&tmax);
-  ntPmt->SetBranchAddress("qmax",&qmax);
-  ntPmt->SetBranchAddress("sum",&sum);
-  ntPmt->SetBranchAddress("tmaxUn",&tmaxUn);
-  ntPmt->SetBranchAddress("qmaxUn",&qmaxUn);
-  ntPmt->SetBranchAddress("sumUn",&sumUn);
-  ntPmt->SetBranchAddress("noise",&noise);
-  ntPmt->SetBranchAddress("base",&base);
-  ntPmt->SetBranchAddress("nhit",&nhit);
-  ntPmt->SetBranchAddress("qrf",&qrf);
-
   Double_t x[NPMT], y[NPMT], z[NPMT],y2[NPMT],z2[NPMT],ex[NPMT], ey[NPMT], ez[NPMT];
   Double_t norm[NPMT]; 
   Double_t yun[NPMT], zun[NPMT],yun2[NPMT],zun2[NPMT], eyun[NPMT], ezun[NPMT];
@@ -941,8 +1104,6 @@ void pmtAna::qualitySummary(TString tag)
     x[j]=Double_t(j); ex[j]=0;  
     y[j]=0; z[j]=0; y2[j]=0; z2[j]=0; ey[j]=0; ez[j]=0;
     norm[j]=0;
-    yun[j]=0; zun[j]=0; yun2[j]=0; zun2[j]=0; eyun[j]=0; ezun[j]=0;
-    normun[j]=0;
     qRF[j]=0;
   }
 
@@ -989,330 +1150,10 @@ void pmtAna::qualitySummary(TString tag)
     pmtSummary->eqsum[j]=ez[j];
     pmtSummary->qrf[j]=qRF[j];
   }
-
-  gROOT->SetStyle("C43");
-  gStyle->SetOptLogy(1);
-  gStyle->SetOptStat(0000);
-
-  int binmax;
-  double histmax;
-
-  TCanvas *myc1 = new TCanvas(Form("pmtRawQ-%s_1",tag.Data()),Form("pmtRawQ-%s_1",tag.Data()),0,0,1860,900);
-  myc1->UseCurrentStyle();
-  myc1->Divide(4,3);
-
-  TCanvas *myc2 = new TCanvas(Form("pmtRawQ-%s_2",tag.Data()),Form("pmtRawQ-%s_2",tag.Data()),0,0,1860,900);
-  myc2->UseCurrentStyle();
-  myc2->Divide(3,3);
-
-  //double gain[21],width[21];
-  for (int i=0;i<21;i++) {
-    //cout<<"111"<<endl;
-    binmax = hRawQ[i]->GetMaximumBin();
-    double fbinmax = double(binmax);
-    histmax = hRawQ[i]->GetBinContent(fbinmax);
-    //cout<<"222"<<endl;
-    TF1* f2 = new TF1("f2","[2]*exp(-(x-[0])*(x-[0])/(2*[1]*[1]))+[5]*exp(-(x-[3])*(x-[3])/(2*[4]*[4]))",0,35);
-    double par[6]={fbinmax,fbinmax/4.,histmax,15,15/2.,histmax/500.};
-    f2->SetParLimits(1,0.50,1);
-    f2->SetParLimits(3,10,25);
-    f2->SetParLimits(4,5,10);
-    f2->SetParameters(par);
-    f2->SetLineColor(2);
-    //cout<<"333"<<endl;
-    if(i<12)myc1->cd(i+1);
-    else    myc2->cd(i-11);
-    hRawQ[i]->Draw();
-    hRawQ[i]->Fit("f2","R");
-    //cout<<"444"<<endl;
-    TF1* f1 = new TF1("f1","[2]*exp(-(x-[0])*(x-[0])/(2*[1]*[1]))+[5]*exp(-(x-[3])*(x-[3])/(2*[4]*[4]))",0,f2->GetParameter(3)+2*f2->GetParameter(4));
-    double par1[6]={f2->GetParameter(0),f2->GetParameter(1),f2->GetParameter(2),f2->GetParameter(3),f2->GetParameter(4),f2->GetParameter(5)};
-    f1->SetParLimits(4,5,10);
-    f1->SetParameters(par1);
-    f1->SetLineColor(2);
-    hRawQ[i]->Fit("f1","R");
-    hRawQ[i]->SetAxisRange(0,60);
-    //gain[i]=f1->GetParameter(3);
-    //width[i]=f1->GetParameter(4);
-    pmtSummary->gain[i]=f1->GetParameter(3);
-    pmtSummary->gain_e[i]=f1->GetParError(3);
-    pmtGains->gain[i]=f1->GetParameter(3);
-    pmtGains->egain[i]=f1->GetParError(3);
-
-    //cout<<"555"<<endl;
-    TPaveStats *ptstats = new TPaveStats(0.65,0.5, 0.95,0.95,"brNDC");
-    ptstats->SetName("stats");
-    ptstats->SetBorderSize(1);
-    ptstats->SetFillColor(0);
-    ptstats->SetTextAlign(12);
-    TText *text;// = ptstats->AddText(Form(""));
-    text = ptstats->AddText(Form("Noise  = %0.3f",f1->GetParameter(0)));
-    text = ptstats->AddText(Form("Noise_{#sigma}  = %0.3f",f1->GetParameter(1)));
-    text = ptstats->AddText(Form("A_{noise}  = %0.0f",f1->GetParameter(2)));
-    text = ptstats->AddText(Form("Gain  = %0.3f",f1->GetParameter(3)));
-    text = ptstats->AddText(Form("#sigma  = %0.3f",f1->GetParameter(4)));
-    text = ptstats->AddText(Form("A_{SPE}  = %0.0f",f1->GetParameter(5)));
-    //cout<<"666"<<endl;
-    ptstats->SetOptStat(0);
-    ptstats->SetOptFit(9);
-    ptstats->Draw();
-    //cout<<"777"<<endl;
-    delete f2;
-    delete f1;
-    //delete ptstats;
-    //delete text;
-    //cout<<"888"<<endl;
-  }
-
-  myc1->Print(".pdf");
-  myc2->Print(".pdf");
-
-
-  TGraphErrors* gr1 = new TGraphErrors(NPMT,x,y,ex,ey);
-  TGraphErrors* grUn1 = new TGraphErrors(NPMT,x,yun,ex,eyun);
-  TCanvas *c1 = new TCanvas(Form("pmtQMaxAverages-%s",tag.Data()),Form("pmt qmax average %s",tag.Data()));
-  gr1->SetMarkerStyle(21);
-  grUn1->SetMarkerStyle(22);
-  grUn1->SetMarkerColor(kBlue);  grUn1->SetLineColor(kBlue); 
-  gr1->SetMarkerColor(kGreen);  gr1->SetLineColor(kGreen); 
-  grUn1->SetName(Form("uncorrected pmt qmax average %s",tag.Data()));
-  grUn1->SetTitle(Form("uncorrected pmt qmax average %s",tag.Data()));
-  gr1->SetName(Form("pmt qmax average %s",tag.Data()));
-  gr1->SetTitle(Form("pmt qmax average %s",tag.Data()));
-  gr1->GetXaxis()->SetTitle(" pmt number ");
-  gr1->GetYaxis()->SetRangeUser(20,50);
-  gr1->Draw("ap");
-  grUn1->Draw("psame");
-  c1->Print(".pdf");
-  outFile->Append(gr1);
-  outFile->Append(grUn1);
-  TGraphErrors* gr2 = new TGraphErrors(NPMT,x,z,ex,ez);
-  TGraphErrors* grUn2 = new TGraphErrors(NPMT,x,zun,ex,ezun);
-  TCanvas *c2 = new TCanvas(Form("pmtPeakAverages-%s",tag.Data()),Form("pmt peak sum averages %s",tag.Data()));
-  gr2->SetMarkerStyle(21);
-  grUn2->SetMarkerStyle(22);
-  grUn2->SetMarkerColor(kBlue);  grUn2->SetLineColor(kBlue); 
-  gr2->SetMarkerColor(kGreen);  gr2->SetLineColor(kGreen); 
-  gr2->SetName(Form("pmt peak sum average %s",tag.Data()));
-  gr2->SetTitle(Form("pmt peak sum average %s",tag.Data()));
-  grUn2->SetName(Form("uncorrected pmt peak sum average %s",tag.Data()));
-  grUn2->SetTitle(Form("uncorrected pmt peak sum average %s",tag.Data()));
-  gr2->GetXaxis()->SetTitle(" pmt number ");
-  gr2->GetYaxis()->SetRangeUser(500,1500);
-  gr2->Draw("ap");
-  grUn2->Draw("psame");
-  c2->Print(".pdf");
-  outFile->Append(gr2);
-  outFile->Append(grUn2);
-
-  // fill neutron spect
-  //printf(" qualitySummary calling fillNeutrons with  %zu \n",pmtSummary->vprompt1.size());
-  //pmtSummary->fillNeutrons();
-
-  pmtGains->print();
-  pmtSummary->print();
   */
+ 
+  // fixed number
 }
 
-
-void pmtAna::ADCFilter(int iB, int iC) 
-{
-  for (int is = 0; is<MAXSAMPLES; ++is) {
-    if (digitizer_waveforms[iB][iC][is] > MAXADC) {
-      if (is > 0) { digitizer_waveforms[iB][iC][is] = digitizer_waveforms[iB][iC][is-1];}
-      else {
-        int is2 = 0;
-        while (digitizer_waveforms[iB][iC][is2] > MAXADC) {
-          digitizer_waveforms[iB][iC][0] = digitizer_waveforms[iB][iC][is2+1];
-          ++is2;
-        }
-      }
-    }
-  }
-}
-
-
-/******************************** auto generated stuff below. ****************************/
-Int_t pmtAna::GetEntry(Long64_t entry)
-{
-  // Read contents of entry.
-  if (!fChain) return 0;
-  return fChain->GetEntry(entry);
-}
-Long64_t pmtAna::LoadTree(Long64_t entry)
-{
-  // Set the environment to read one entry
-  if (!fChain) return -5;
-  Long64_t centry = fChain->LoadTree(entry);
-  if (centry < 0) return centry;
-  if (fChain->GetTreeNumber() != fCurrent) {
-    fCurrent = fChain->GetTreeNumber();
-    Notify();
-  }
-  return centry;
-}
-
-void pmtAna::Init(TTree *tree)
-{
-  // The Init() function is called when the selector needs to initialize
-  // a new tree or chain. Typically here the branch addresses and branch
-  // pointers of the tree will be set.
-  // It is normally not necessary to make changes to the generated
-  // code, but the routine can be extended by the user if needed.
-  // Init() will be called many times when running on PROOF
-  // (once per file to be processed).
-
-  // Set branch addresses and branch pointers
-  if (!tree) return;
-  fChain = tree;
-  fCurrent = -1;
-  fChain->SetMakeClass(1);
-
-  fChain->SetBranchAddress("event_number", &event_number, &b_event_number);
-  fChain->SetBranchAddress("computer_secIntoEpoch", &computer_secIntoEpoch, &b_computer_secIntoEpoch);
-  fChain->SetBranchAddress("computer_nsIntoSec", &computer_nsIntoSec, &b_computer_nsIntoSec);
-  fChain->SetBranchAddress("gps_nsIntoSec", &gps_nsIntoSec, &b_gps_nsIntoSec);
-  fChain->SetBranchAddress("gps_secIntoDay", &gps_secIntoDay, &b_gps_secIntoDay);
-  fChain->SetBranchAddress("gps_daysIntoYear", &gps_daysIntoYear, &b_gps_daysIntoYear);
-  fChain->SetBranchAddress("gps_Year", &gps_Year, &b_gps_Year);
-  fChain->SetBranchAddress("gps_ctrlFlag", &gps_ctrlFlag, &b_gps_ctrlFlag);
-  fChain->SetBranchAddress("digitizer_size", digitizer_size, &b_digitizer_size);
-  fChain->SetBranchAddress("digitizer_chMask", digitizer_chMask, &b_digitizer_chMask);
-  fChain->SetBranchAddress("digitizer_evNum", digitizer_evNum, &b_digitizer_evNum);
-  fChain->SetBranchAddress("digitizer_time", digitizer_time, &b_digitizer_time);
-  fChain->SetBranchAddress("digitizer_waveforms", digitizer_waveforms, &b_digitizer_waveforms);
-  fChain->SetBranchAddress("nDigitizers", &nDigitizers, &b_nDigitizers);
-  fChain->SetBranchAddress("nChannels", &nChannels, &b_nChannels);
-  fChain->SetBranchAddress("nSamples", &nSamples, &b_nSamples);
-  fChain->SetBranchAddress("nData", &nData, &b_nData);
-  Notify();
-}
-
-Bool_t pmtAna::Notify()
-{
-  // The Notify() function is called when a new file is opened. This
-  // can be either for a new TTree in a TChain or when when a new TTree
-  // is started when using PROOF. It is normally not necessary to make changes
-  // to the generated code, but the routine can be extended by the
-  // user if needed. The return value is currently not used.
-
-  return kTRUE;
-}
-
-void pmtAna::Show(Long64_t entry)
-{
-  // Print contents of entry.
-  // If entry is not specified, print current entry
-  if (!fChain) return;
-  fChain->Show(entry);
-}
-Int_t pmtAna::Cut(Long64_t entry)
-{
-  // This function may be called from Loop.
-  // returns  1 if entry is accepted.
-  // returns -1 otherwise.
-  return 1;
-}
-
-Double_t pmtAna::getPromptTime()
-{
-  /* fill histogram to find peak bin in event.
-  for(int ib=0; ib<NB; ++ib) hTPromptEvent[ib]->Reset();
-
-  for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {
-    Int_t hitTime = pmtEvent->hit[ihit].peakTime;
-    Double_t qpeak = pmtEvent->hit[ihit].qpeak;
-    Int_t ib,ic;
-    fromPmtNumber(pmtEvent->hit[ihit].ipmt, ib,ic);
-    hTPromptEvent[ib]->Fill(Int_t(hitTime),qpeak);
-  }
-
-  for(UInt_t ib=0; ib<NB; ++ib) pmtEvent->tPrompt[ib] = Double_t(hTPromptEvent[ib]->GetMaximumBin()) - pmtEvent->tRFave;
-  */
-  // fill histogram to find peak bin in event.
-  hTPromptEvent->Reset();
-  std::vector<Int_t> rft;
-  
-  for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {//ysun
-    for (int i=0;i<pmtEvent->hit[ihit].nsamples;i++) {//ysun
-      hTPromptEvent->Fill(pmtEvent->hit[ihit].tsample[i],pmtEvent->hit[ihit].qsample[i]);//ysun
-    }//ysun
-  }//ysun
-  if(hTPromptEvent->GetEntries()>0) return Double_t(hTPromptEvent->GetMaximumBin()-MAXSAMPLES); //ysun
-  else return -9999;//ysun
-}
-Double_t pmtAna::getPromptTimeToRF()
-{
-  // fill histogram to find peak bin in event.
-  hTPromptEvent->Reset();
- std::vector<Int_t> rft;
-
-
- for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {//ysun
-   if(pmtEvent->hit[ihit].ipmt<7) rft = pmtEvent->rft21;//ysun
-   else if(pmtEvent->hit[ihit].ipmt>=7 && pmtEvent->hit[ihit].ipmt<14) rft = pmtEvent->rft22;//ysun
-   else if(pmtEvent->hit[ihit].ipmt>=14 && pmtEvent->hit[ihit].ipmt<21) rft = pmtEvent->rft23;//ysun
-   if(rft.size()>0){
-     for (int i=0;i<pmtEvent->hit[ihit].nsamples;i++) {//ysun
-       hTPromptEvent->Fill(pmtEvent->hit[ihit].tsample[i]-rft[0],pmtEvent->hit[ihit].qsample[i]);//ysun
-     }//ysun
-   }
- }//ysun
- //return Double_t(hTPromptEvent->GetMaximumBin())-pmtEvent->tRFave; //ysun
- if(hTPromptEvent->GetEntries()>0) return Double_t(hTPromptEvent->GetMaximumBin()-MAXSAMPLES); //ysun
- else return -9999;//ysun
-}
-/*
-// nearest RF time to hit peak time
-void pmtAna::getTimeToRF() 
-{
-  for(unsigned ihit=0; ihit< pmtEvent->hit.size(); ++ihit) {
-    Int_t time = MAXSAMPLES;
-    Int_t hitTime = pmtEvent->hit[ihit].peakTime;
-    for(unsigned i=0; i<pmtEvent->rft21.size() ; ++i) {
-      Int_t tdiff = hitTime - pmtEvent->rft21[i];
-      if(tdiff<0) break;
-      if( tdiff<time ) time=tdiff;
-    }
-    for(unsigned i=0; i<pmtEvent->rft22.size() ; ++i) {
-      Int_t tdiff = hitTime - pmtEvent->rft22[i];
-      if(tdiff<0) break;
-      if( tdiff<time ) time=tdiff;
-    }
-    for(unsigned i=0; i<pmtEvent->rft23.size() ; ++i) {
-      Int_t tdiff = hitTime - pmtEvent->rft23[i];
-      if(tdiff<0) break;
-      if( tdiff<time ) time=tdiff;
-    }
-    pmtEvent->hit[ihit].timeToRF = time;
-  }
-}
-*/
-
-
-// neils filter
-std::vector<Double_t> pmtAna::MovingAverageFilter(std::vector<Double_t> signal,Int_t aveN)
-{
-  Int_t N = aveN;
-  if(aveN%2==0) ++N; 
-  std::vector<Double_t> filter;
-  Int_t N2 = std::floor(N/2);
-  for(int i = N2; i < Int_t(signal.size())-N2; i++){
-    Double_t sum = 0;
-    for(int j = i-N2; j <= i+N2; j++){
-      sum += signal[j];
-    }
-    sum /= N;
-    filter.push_back(sum);
-  }
-
-  for(int i = 0; i < N2 ; i++){
-    std::vector<Double_t>::iterator it;
-    it = filter.begin();
-    filter.insert(it,0.);
-    filter.push_back(0);
-  }
-  return filter;
-}
 
 

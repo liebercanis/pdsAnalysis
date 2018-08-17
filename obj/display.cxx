@@ -1,46 +1,40 @@
 //Very simple functions to help plot PMT waveforms
+#include "display.hxx"
+ClassImp(display)
 
-#include <unistd.h>
-#include <cstdio>
-#include <iostream>
+display::display(): TNamed("TPmtHit","TPmtHit")
+{
+  histosetup = false;
+  prefilter = true, postfilter = true;
+  chain=NULL;
+  Mask0=255;
+  Mask1=255;
+  Mask2=255;
+  c1=NULL;
+  tagList.clear();
+    
+  hsum = new TH1F("hsum", "PMT Sum;Sample (4 ns per sample);ADC Counts", NSAMPLES, 0., 1.*NSAMPLES);
+  hsumDraw = new TH1F("hsumDraw", "PMT Sum;Sample (4 ns per sample);ADC Counts", NSAMPLES, 0., 1.*NSAMPLES);
+    
+  hsumDraw->SetLineColor(kRed);
+  
+  for (int iB = 0; iB<NBOARDS; ++iB) {
+        for (int iC = 0; iC<NPMTS; ++iC) {
+          histo[iB][iC]=NULL;
+          histoDraw[iB][iC]=NULL;
+        }
+  }
 
-#include "TFile.h"
-#include "TChain.h"
-#include <iostream>
-#include "TTree.h"
-#include "TH1F.h"
-#include "TCanvas.h"
-#include "TStyle.h"
-#include "TF1.h"
+  SetupHistos(50.);
+  
+}
+display::~display()
+{
+  if (!chain) return;
+  delete chain->GetCurrentFile();
+}
 
-const int NSAMPLES = 2100, NBOARDS = 3, NPMTS = 8;
-const UShort_t bogus = -999;
-UShort_t waveforms[NBOARDS][NPMTS][NSAMPLES];
-const int cWidth=800, cHeight=700;
-int ADCrange = 4095;
-TString tag; // event tag
-TFile *tf = 0;
-TTree *pmt_tree = 0;
-TChain *chain = 0;
-
-bool histosetup = false;
-TH1F *histo[NBOARDS][NPMTS];
-TH1F *histoDraw[NBOARDS][NPMTS];
-TH1F *hsum = 0;
-TH1F *hsumDraw = 0;
-TH1F *hmaster = 0;
-
-bool prefilter = true, postfilter = true;
-
-TCanvas *c1 = 0;
-
-int Mask0 = 255;
-int Mask1 = 255;
-int Mask2 = 255;
-
-int Trims[NBOARDS][NPMTS];
-
-void TestRange(TH1F *histogram, int &startBin, int &stopBin) {
+void display::TestRange(TH1F *histogram, int &startBin, int &stopBin) {
     
     if (stopBin < startBin) {
         int temp = stopBin;
@@ -55,50 +49,67 @@ void TestRange(TH1F *histogram, int &startBin, int &stopBin) {
     
 }
 
-void SetFilter(bool forBaseline = true, bool forDisplay = true) {
+void display::SetFilter(bool forBaseline, bool forDisplay) {
     
     prefilter = forBaseline;
     postfilter = forDisplay;
     
 }
 
-void OpenFile(const char *infile, const char *treename = "pmt_tree") {
+void display::OpenFile(const char *infile, const char *treename ) {
     
     tf = new TFile(infile, "READ");
     pmt_tree = (TTree *)tf->Get(treename);
     pmt_tree->SetBranchAddress("digitizer_waveforms", &waveforms);
 
 }
+void display::AddTag(TString tag, const char *treename) 
+{   
+  cout << "AddTag tag "<< tag << endl;
+  if (!chain) { chain = new TChain(treename); } 
+  TString fileName = TString("pdsData/PDSout_") + tag + TString(".root");
+  int numfiles = chain->Add(fileName);
+  chain->SetBranchAddress("digitizer_waveforms", &waveforms);
+  if (numfiles == 0) { cout << "No files added" << endl; }
+  cout << " chain has " << chain->GetEntries() << " entries " << endl;
+}
 
-void AddChain(const char *infiles, const char *treename = "pmt_tree") {
-    
+void display::SetTagList(){
+  TObjArray *fileElements=chain->GetListOfFiles();
+  TIter next(fileElements);
+  TChainElement *chEl=NULL;
+  while (( chEl=(TChainElement*)next() )) {
+    string fname = string(chEl->GetTitle());
+    tagList.push_back(fname.substr( fname.find("_")+1, fname.find(".") -1  - fname.find("_")));
+  }
+  for(unsigned it=0; it< tagList.size() ; ++ it) cout << it << "  " << tagList[it] << endl;
+}
+
+void display::AddChain(const char *infiles, const char *treename ) {
     if (!chain) { chain = new TChain(treename); }
     int numfiles = chain->Add(infiles);
-    
     chain->SetBranchAddress("digitizer_waveforms", &waveforms);
-    
     if (numfiles == 0) { cout << "No files added" << endl; }
     cout << " chain has " << chain->GetEntries() << " entries " << endl;
     //chain->ls();
 }
 
-void ClearChain() {
+void display::ClearChain() {
     
     delete chain;
     chain = 0;
 }
 
-void ClearTree() {
+void display::ClearTree() {
     
     delete pmt_tree;
     pmt_tree = 0;
 }
 
-void SetupHistos(float offsetstepADC) {
+void display::SetupHistos(float offsetstepADC) {
     
     for (int iB = 0; iB<NBOARDS; ++iB) {
         for (int iC = 0; iC<NPMTS; ++iC) {
-            
             if (!histo[iB][iC]) {
                 histo[iB][iC] = new TH1F(Form("B%iC%i_0",iB, iC), Form("B%i C%i",iB, iC), NSAMPLES, 0., 1.*NSAMPLES);
                 histo[iB][iC]->SetStats(0);
@@ -119,15 +130,11 @@ void SetupHistos(float offsetstepADC) {
     hmaster->GetYaxis()->SetTitleOffset(1.30);
     hmaster->SetStats(0);
     
-    hsum = new TH1F("hsum", "PMT Sum;Sample (4 ns per sample);ADC Counts", NSAMPLES, 0., 1.*NSAMPLES);
-    hsumDraw = new TH1F("hsumDraw", "PMT Sum;Sample (4 ns per sample);ADC Counts", NSAMPLES, 0., 1.*NSAMPLES);
-    
-    hsumDraw->SetLineColor(kRed);
-    
     histosetup = true;
+    gDirectory->ls();    
 }
 
-void ADCfilter(int iB, int iC) {
+void display::ADCfilter(int iB, int iC) {
     
     for (int iS = 0; iS<NSAMPLES; ++iS) {
         if (waveforms[iB][iC][iS] > ADCrange) {
@@ -143,7 +150,7 @@ void ADCfilter(int iB, int iC) {
     }
 }
 
-float GetBaseline(int iB, int iC, int baselinestart=10, int baselinewide=50) {
+float display::GetBaseline(int iB, int iC, int baselinestart, int baselinewide) {
     float baseline = 0.;
     for (int iS = baselinestart; iS<(baselinestart+baselinewide); ++iS) {
         baseline += waveforms[iB][iC][iS]/(1.*baselinewide);
@@ -153,7 +160,7 @@ float GetBaseline(int iB, int iC, int baselinestart=10, int baselinewide=50) {
     
 }
 
-float GetBaseline(TH1F *h1, int baselinestart=10, int baselinewide=50) {
+float display::GetBaseline(TH1F *h1, int baselinestart, int baselinewide) {
     
     int baselinestop = baselinestart+baselinewide;
     TestRange(h1, baselinestart, baselinestop);
@@ -166,7 +173,7 @@ float GetBaseline(TH1F *h1, int baselinestart=10, int baselinewide=50) {
     return baseline;
 }
 
-float GetSigma(TH1F *h1, int baselinestart=10, int baselinewide=50) {
+float display::GetSigma(TH1F *h1, int baselinestart, int baselinewide) {
     
     int baselinestop = baselinestart+baselinewide;
     TestRange(h1, baselinestart, baselinestop);
@@ -180,7 +187,9 @@ float GetSigma(TH1F *h1, int baselinestart=10, int baselinewide=50) {
     return sqrt(tot2-tot*tot);
 }
 
-bool FillHistos(int EvNum, float offsetstepADC = 50.) {
+bool display::FillHistos(int EvNum, float offsetstepADC ){ 
+
+    printf(" fill histos for %i \n",EvNum);
     
     if (!histosetup) { SetupHistos(offsetstepADC); }
     
@@ -231,15 +240,69 @@ bool FillHistos(int EvNum, float offsetstepADC = 50.) {
             offset += offsetstepADC;
         }
     }
-    
-    hmaster->SetTitle(Form("ADC Plot File %s Event %i;Sample (4 ns per sample);ADC Counts",tag.Data(),EvNum));
+    UInt_t evFile  = EvNum%5000;  
+    UInt_t iFile = EvNum/5000;
+    hmaster->SetTitle(Form("ADC Plot File %s Event %i;Sample (4 ns per sample);ADC Counts",tagList[iFile].c_str(),evFile));
     printf(" %s %f \n",hmaster->GetTitle(),sumAll);
+    std::vector<Int_t> rftimes0 =getRFTimes(0); 
+    std::vector<Int_t> rftimes1 =getRFTimes(1); 
+    std::vector<Int_t> rftimes2 =getRFTimes(2); 
+    Int_t rf0=-1;
+    Int_t rf1=-1;
+    Int_t rf2=-1;
+    if(rftimes0.size()>0) rf0 = rftimes0[0];
+    if(rftimes1.size()>0) rf1 = rftimes1[0];
+    if(rftimes2.size()>0) rf2 = rftimes2[0];
+    //printf(" sizes of rftimes %u %u %u \n",rftimes0.size(),rftimes1.size(),rftimes2.size());
+    printf(" rftimes %i %i %i  \n",rf0,rf1,rf2);
     
     return true;
 
 }
 
-bool SumEvents(bool trim = false, float offsetstepADC = 50.) {
+std::vector<Int_t> display::getRFTimes(int ib) 
+{
+  printf(" getting RF times board %i \n",ib);
+  std::vector<Int_t> rftimes;
+  rftimes.clear();
+  int ic=7;
+
+  // find baseline
+  std::vector<UShort_t> udigi; 
+  for (UInt_t is=0; is<NSAMPLES; ++is) udigi.push_back(waveforms[ib][ic][is]);
+  std::sort(udigi.begin(), udigi.end());
+  UShort_t baseline = udigi[0.5*double(NSAMPLES)];
+
+  // looking for negative values.  
+  UShort_t digiMin=MAXADC;
+  for (UInt_t is=0; is<NSAMPLES; ++is) {
+    waveforms[ib][ic][is]=TMath::Min( baseline,waveforms[ib][ic][is]);
+    if(waveforms[ib][ic][is]<digiMin) digiMin=waveforms[ib][ic][is];
+  }
+
+  double step = double(digiMin) - double(baseline);
+  // return if step down is too small
+  if(step>-500) {
+    printf(" step too small %f %u \n",step,rftimes.size());
+    return rftimes;
+  }
+  // pick off start of rising edge
+  bool isRF=false;
+  for (UInt_t is=0; is<NSAMPLES; ++is){
+    double digi = double(waveforms[ib][ic][is]) - double(baseline);
+    if(digi<0.75*step&&!isRF) {
+      rftimes.push_back(is);
+      isRF=true;
+    } else if(digi>0.75*step) {
+      isRF=false;
+    }
+  }
+  printf(" board %i has %u rftimes\n",ib,rftimes.size());
+  for(unsigned it =0; it< rftimes.size(); ++it ) printf(" board %i %i %i",ib,it,rftimes[it]);
+  return rftimes;
+}
+
+bool display::SumEvents(bool trim , float offsetstepADC) {
     
     hsum->Reset();
     hsumDraw->Reset();
@@ -269,7 +332,8 @@ bool SumEvents(bool trim = false, float offsetstepADC = 50.) {
     return true;
 }
 
-bool DrawEvent(int EvNum, int mask0 = 255, int mask1 = 255, int mask2 = 255, bool showSum = true, float offsetstepADC = 50.) {
+bool display::DrawEvent(int EvNum, int mask0 , int mask1 , int mask2 , bool showSum, float offsetstepADC ) 
+{
     
   bool status = FillHistos(EvNum, offsetstepADC);
   status &= SumEvents(false, offsetstepADC);
@@ -282,7 +346,10 @@ bool DrawEvent(int EvNum, int mask0 = 255, int mask1 = 255, int mask2 = 255, boo
   Mask0 = mask0; Mask1 = mask1; Mask2 = mask2;
 
   if (!c1) { c1 = new TCanvas("c1", "", cWidth, cHeight); }
-
+  UInt_t evFile  = EvNum%5000;  
+  UInt_t iFile = EvNum/5000;
+  c1->SetName(Form("Run%sEvent%u",tagList[iFile].c_str(),evFile));
+  c1->SetTitle(Form("ADC Plot File %s Event %i;Sample (4 ns per sample);ADC Counts",tagList[iFile].c_str(),evFile));
   hmaster->Draw();
 
   for (int iB = 0; iB<NBOARDS; ++iB) {
@@ -301,13 +368,13 @@ bool DrawEvent(int EvNum, int mask0 = 255, int mask1 = 255, int mask2 = 255, boo
     
   if (showSum) { hsumDraw->Draw("hist same"); }
     
-  c1->Modified(); c1->Update();
+  //c1->Modified(); c1->Update();
     
   return true;
     
 }
 
-float EstimateTS(int EvNum, float threshold) {
+float display::EstimateTS(int EvNum, float threshold) {
     
   float peak=0, total=0, F90=0;
   int pulse0 = 0;
@@ -343,7 +410,7 @@ float EstimateTS(int EvNum, float threshold) {
 
 }
 
-int GetT0Bin(TH1F *histogram, float threshold, int startBin, int stopBin) {
+int display::GetT0Bin(TH1F *histogram, float threshold, int startBin, int stopBin) {
     
 
     TestRange(histogram, startBin, stopBin);
@@ -356,7 +423,7 @@ int GetT0Bin(TH1F *histogram, float threshold, int startBin, int stopBin) {
     
 }
 
-int GetMinimum(TH1F *histogram, float &minVal, int startBin, int stopBin, bool StepForward=true) {
+int display::GetMinimum(TH1F *histogram, float &minVal, int startBin, int stopBin, bool StepForward) {
     
     int iStart = startBin, iStop = stopBin, step = 1;
     TestRange(histogram, startBin, stopBin);
@@ -378,18 +445,3 @@ int GetMinimum(TH1F *histogram, float &minVal, int startBin, int stopBin, bool S
     return minBin;
     
 }
-
-
-void vis(int iEvent=0, TString theTag= "07-22-1408_0") 
-{
-  tag=theTag;
-   TString inputFileName = TString("pdsData/PDSout_")+tag+TString(".root");
-   AddChain(inputFileName);
-  // open ouput file and make some histograms
-  TString outputFileName = TString("visualizer-")+tag+TString(".root");
-  TFile *outfile = new TFile(outputFileName,"recreate");
-  printf(" opening output file %s \n",outputFileName.Data());
-  DrawEvent(iEvent);
-  printf(" DrawEvent(i) \n");
-}
-
